@@ -54,7 +54,7 @@ exports.showAllCategories = async (req, res) => {
 }
 
 // categoryPageDetails
-exports.getAllRatingAndReviews = async (req, res) => {
+exports.categoryPageDetails = async (req, res) => {
     try{
         // get category ID
         const {categoryId} = req.body;

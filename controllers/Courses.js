@@ -95,7 +95,7 @@ exports.createCourse = async (req, res) => {
 }
 
 // getAllCourses handler function
-const showAllCourses = async (req, res) => {
+exports.showAllCourses = async (req, res) => {
     try{
         // TODO: change below line incrementally
         const allCourses = await Course.find({}, )  // {courseName:true,price:true,thumbnail:true,instructor:true,ratingAndReviews:true,enrolledStudents:true} .populate("instructor").exec(); -> isse kya hota hai? 
