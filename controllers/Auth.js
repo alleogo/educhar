@@ -1,9 +1,12 @@
 const User = require('../models/User');
+const Profile = require('../models/Profile');
 const OTP = require('../models/OTP');
 const otpGenerator = require('otp-generator'); 
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+
 require('dotenv').config();
+
 
 // sendOTP
 exports.sendOTP = async (req, res) => {
@@ -69,7 +72,7 @@ exports.signUp = async (req, res) => {
     try{
         // data fetch from req.body
         const {
-            fistName,
+            firstName,
             lastName,
             email,
             password,
@@ -110,14 +113,14 @@ exports.signUp = async (req, res) => {
         console.log(recentOtp);   
 
         // validate OTP
-        if(recentOtp.length == 0){
+        if(!recentOtp){
             // OTP not found
             return res.status(400).json({
                 success: false,
                 message: "OTP not found"
             });
         }
-        else if(recentOtp != otp){
+        else if(recentOtp.otp != otp){
             // Invalid OTP
             return res.status(400).json({
                 success: false,
