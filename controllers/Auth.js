@@ -192,7 +192,7 @@ exports.logIn = async (req, res) => {
             const payload = {
                 email: user.email,
                 id: user._id,
-                raccountTypeole: user.accountType
+                accountType: user.accountType
             }
             const token = jwt.sign(payload, process.env.JWT_SECRET, {
                 expiresIn: '2h'
@@ -231,16 +231,65 @@ exports.logIn = async (req, res) => {
 // changePassword
 exports.changePassword = async (req, res) => {
     try{
-        // get data from req.body
-        // get oldPassword, newPassword, confirmNewPassword
-        // validation
+        // fetch data
+        const {oldPassword, newPassword, confirmNewPassword} = req.body;
 
-        // update new password in DB
-        // send password updated email
+        // get user details from auth middleware
+        const userDetails = await User.findById(req.user.id);
+
+        // check old password
+        const isPasswordMatch = await bcrypt.compare(
+            oldPassword,
+            userDetails.password
+        );
+
+        if(!isPasswordMatch){
+            return res.status(401).json({
+                success: false,
+                message: "Old password is incorrect."
+            });
+        }
+
+        // check new password and confirm password
+        if(newPassword !== confirmNewPassword){
+            return res.status(400).json({
+                success: false,
+                message: "Passwords do not match."
+            });
+        }
+
+        // hash new password
+        const encryptedPassword = await bcrypt.hash(newPassword, 10);
+
+        // update password
+        const updatedUserDetails = await User.findByIdAndUpdate(
+            req.user.id,
+            {password: encryptedPassword},
+            {new: true}
+        );
+
+        // send mail
+        try{
+            await mailSender(
+                updatedUserDetails.email,
+                "Password Updated",
+                "Your password has been changed successfully."
+            );
+        }
+        catch(error){
+            console.log("Error occurred while sending email:", error);
+        }
+
         // return response
+        return res.status(200).json({
+            success: true,
+            message: "Password updated successfully."
+        });
+
     }
     catch(error){
         console.log(error);
+
         return res.status(500).json({
             success: false,
             message: "Couldn't change password. Please try again."

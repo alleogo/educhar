@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const mailSender = require("../utils/mailSender");
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 
 // resetPasswordToken
 exports.resetPasswordToken = async (req, res) => {
@@ -25,11 +26,11 @@ exports.resetPasswordToken = async (req, res) => {
                                                         {
                                                             token: token,
                                                             resetPasswordExpires: Date.now() + 5*60*1000
-                                                        }, 
+                                                        },
                                                         {new: true});    // {new: true} return updated details
 
         // create URL
-        const url = `http://localhost:3000/reset-password/${token}`;
+        const url = `http://localhost:8080/reset-password/${token}`;
         
         // send mail containing the url
         await mailSender(email,
@@ -46,7 +47,7 @@ exports.resetPasswordToken = async (req, res) => {
         console.log(error);
         return res.status(500).json({
             success: false,
-            message: "Something went wrong while sending reset password email"
+            message: error.message || "Something went wrong while sending reset password email"
         });
     }
 }
@@ -55,7 +56,7 @@ exports.resetPasswordToken = async (req, res) => {
 exports.resetPassword = async (req, res) => {
     try{
         // data fetch from req.body
-        const {password, confirmPassword, toke} = req.body();
+        const {password, confirmPassword, token} = req.body;
 
         // validation
         if(password != confirmPassword){
@@ -88,8 +89,11 @@ exports.resetPassword = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
 
         // update password 
-        await User.findOneAndReplace({token: token},
-                                    {password: hashedPassword},
+        await User.findOneAndUpdate({token: token},
+                                    {password: hashedPassword,
+                                        token: undefined,
+                                        resetPasswordExpires: undefined
+                                    },
                                     {new: true});
 
         // return response
