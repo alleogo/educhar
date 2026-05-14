@@ -60,7 +60,7 @@ exports.deleteAccount = async (req,res) => {
                 success: false,
                 message: "User Not Found."
             });
-        } 
+        }
 
         // delete profile
         await Profile.findByIdAndDelete({_id: userDetails.additionalDetails}); 
@@ -71,7 +71,7 @@ exports.deleteAccount = async (req,res) => {
 
         // return response
         return res.status(200).json({
-            success: false,
+            success: true,
             message: "User deleted successfully."
         })
     }
@@ -89,6 +89,7 @@ exports.getAllUserDetails = async (req, res) => {
     try{
         const id = req.user.id;
         const userDetails = await User.findById(id).populate("additionalDetails").exec(); 
+        console.log(userDetails);
         return res.status(200).json({
             success: true,
             message: "User data fetched successfully."
