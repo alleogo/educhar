@@ -24,7 +24,7 @@ exports.createCategory = async (req, res) => {
         //return response
         return res.status(200).json({
             success: true,
-            message: "Category created successfully.  "
+            message: "Category created successfully."
         })
     }
     catch(error){
@@ -61,7 +61,7 @@ exports.categoryPageDetails = async (req, res) => {
 
         // get courses for specified category ID
         const selectedCategory = await Category.findById(categoryId)
-                                        .populate("courses").exec(); 
+                                        .populate("course").exec(); 
 
         // validation
         if(!selectedCategory){
