@@ -8,9 +8,9 @@ const {createRating, getAverageRating, getAllRatingAndReviews} = require("../con
 const {auth, isInstructor, isStudent, isAdmin} = require("../middlewares/auth");
 
 // Course
-router.post("/createcourse", auth, isInstructor, createCourse);
-router.get("/getallcourses", showAllCourses);
-router.get("/getcoursedetails", getCourseDetails);
+router.post("/createcourse", auth, isInstructor, createCourse); // tested: thumbnail field is not being tested currently, will be tested later after integrating cloudinary
+router.get("/getallcourses", showAllCourses);                   // tested
+router.get("/getcoursedetails", getCourseDetails);              // tested
 
 // Section
 router.post("/createsection", auth, isInstructor, createSection);
@@ -21,9 +21,9 @@ router.delete("/deletesection", auth, isInstructor, deleteSection);
 router.post("/createsubsection", auth, isInstructor, createSubsection);
 
 // Category
-router.post("/createcategory", auth, isAdmin, createCategory);
-router.get("/getallcategories", showAllCategories);
-router.get("/getcategorydetails", categoryPageDetails);
+router.post("/createcategory", auth, isAdmin, createCategory);  // tested
+router.get("/getallcategories", showAllCategories);            // tested
+router.get("/getcategorydetails", categoryPageDetails);        // tested
 
 // Rating and Review
 router.post("/createrating", auth, isStudent, createRating);
