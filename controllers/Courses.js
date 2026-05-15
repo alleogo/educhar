@@ -11,11 +11,11 @@ exports.createCourse = async (req, res) => {
         // fetch data
         const {courseName, courseDescription, whatYouWillLearn, price, category} = req.body;
 
-        // get thumbnail
-        const thumbnail = req.body.thumbnail;
+        // get thumbnail: bad mei handle karna hai, thumbnail is a file, so we have to extract it from req.files
+        // const thumbnail = req.body.thumbnail;
 
         // validation
-        if(!courseName || !courseDescription || !whatYouWillLearn || !price || !category || !thumbnail){
+        if(!courseName || !courseDescription || !whatYouWillLearn || !price || !category){  // || !thumbnail
             return res.status(400).json({
                 success: false,
                 message: "Fill all required fields."
@@ -24,7 +24,7 @@ exports.createCourse = async (req, res) => {
 
         // check for instructor
         const userId = req.user.id;
-        const instructorDetails = await User.findById(useId);
+        const instructorDetails = await User.findById(userId);
         //***   instructor ki userId vs objectId: isko dekhna hai ***
         // TODO: verify that userID and instructorDetails._id are same or different 
         console.log("Instructor details: ", instructorDetails);
@@ -44,8 +44,8 @@ exports.createCourse = async (req, res) => {
             });
         }
 
-        // Upload image to cloudinary
-        const thumbnailImage = await uploadImageToCloudinary(thumbnail, process.env.FOLDER_NAME);
+        // Upload image to cloudinary: 
+        // const thumbnailImage = await uploadImageToCloudinary(thumbnail, process.env.FOLDER_NAME);
 
         // create an entry for new course
         const newCourse = await Course.create({
@@ -54,7 +54,7 @@ exports.createCourse = async (req, res) => {
             whatYouWillLearn: whatYouWillLearn,  // or simply whatYouWillLearn, 
             price, 
             category: categoryDetails._id,                 //category: category
-            thumbnail: thumbnailImage.secure_url
+            // thumbnail: thumbnailImage.secure_url
         });
 
         // add new course to user schema of instructor
@@ -98,7 +98,7 @@ exports.createCourse = async (req, res) => {
 exports.showAllCourses = async (req, res) => {
     try{
         // TODO: change below line incrementally
-        const allCourses = await Course.find({}, )  // {courseName:true,price:true,thumbnail:true,instructor:true,ratingAndReviews:true,enrolledStudents:true} .populate("instructor").exec(); -> isse kya hota hai? 
+        const allCourses = await Course.find({},)  // {courseName:true,price:true,thumbnail:true,instructor:true,ratingAndReviews:true,enrolledStudents:true} .populate("instructor").exec(); -> isse kya hota hai? 
         return res.status(200).json({
             success: true,
             message: "Data for all courses fetched successfully!",
