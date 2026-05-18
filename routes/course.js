@@ -13,9 +13,9 @@ router.get("/getallcourses", showAllCourses);                   // tested
 router.get("/getcoursedetails", getCourseDetails);              // tested
 
 // Section
-router.post("/createsection", auth, isInstructor, createSection);
-router.put("/updatesection", auth, isInstructor, updateSection);
-router.delete("/deletesection", auth, isInstructor, deleteSection);
+router.post("/createsection", auth, isInstructor, createSection);   // testd
+router.put("/updatesection", auth, isInstructor, updateSection);   // tested
+router.delete("/deletesection/:sectionId", auth, isInstructor, deleteSection);  // tested
 
 // SubSection
 router.post("/createsubsection", auth, isInstructor, createSubsection);
