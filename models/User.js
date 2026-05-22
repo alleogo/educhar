@@ -29,10 +29,10 @@ const userSchema = new mongoose.Schema({
         required: true,
         ref: "Profile"
     },
-    courses:{
+    courses:[{
         type: mongoose.Schema.ObjectId,
         ref: "Course"
-    },
+    }],
     image:{
         type: String,        // URL hoga
         required: true
@@ -43,10 +43,10 @@ const userSchema = new mongoose.Schema({
     resetPasswordExpires:{
         type: Date
     },
-    courseProgress:{
+    courseProgress:[{
         type: mongoose.Schema.ObjectId,
         ref: "CourseProgress"
-    } 
+    }] 
 })
 
 module.exports = mongoose.model("User", userSchema);

@@ -1,6 +1,7 @@
 const RatingAndReview = require("../models/RatingAndReview");
 const User = require("../models/User");
 const Course = require("../models/Course");
+const mongoose = require("mongoose");
 
 // createRating
 exports.createRating = async (req, res) => {
@@ -11,10 +12,14 @@ exports.createRating = async (req, res) => {
         // fetch data from req.body
         const {rating, review, courseId} = req.body;
 
+        console.log("req.user = ", req.user);
+        console.log("userId = ", userId);
+        console.log(typeof userId);
+
         // check if user is enrolled or not
-        const courseDetails = await Course.findOne(
+        const courseDetails = await Course.findOne( // {$elemMatch: {$eq: userId}}
                                                    {_id: courseId,
-                                                    enrolledStudents: {$elemMathc: {$eq: userId}}
+                                                    enrolledStudents: userId
                                                    }
                                                   );
         
@@ -27,7 +32,7 @@ exports.createRating = async (req, res) => {
 
         // check if user already reviewed
         const alreadyReviewed = await RatingAndReview.findOne({user:userId, course:courseId});
-        if(!alreadyReviewed){
+        if(alreadyReviewed){
             return res.status(403).json({
                 success: false,
                 message: "Course is already reviewed by the user."
@@ -101,7 +106,11 @@ exports.getAverageRating = async (req, res) => {
         }); 
     }
     catch(error){
-
+        console.log(error);
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        }); 
     }
 }
 
