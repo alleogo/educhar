@@ -3,12 +3,11 @@ const router = express.Router();
 const {capturePayment, verifySignature, enrollCourse, getEnrolledCourses} = require("../controllers/Payments");
 const {auth, isStudent} = require("../middlewares/auth");
 
-router.post("/capturepayment", auth, isStudent, capturePayment);
-router.post("/verifysignature", verifySignature);
+router.post("/capturepayment", auth, isStudent, capturePayment);    // tested
+router.post("/verifysignature", verifySignature);   // tested
 
 // Manual enrollment
-router.post("/enrollcourse", auth, isStudent, enrollCourse);  
-// Get enrolled courses
-router.get("/enrolledcourses", auth, isStudent, getEnrolledCourses);  
+router.post("/enrollcourse", auth, isStudent, enrollCourse);    // tested
+router.get("/enrolledcourses", auth, isStudent, getEnrolledCourses);    // tested
 
 module.exports = router;

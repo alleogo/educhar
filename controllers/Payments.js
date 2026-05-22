@@ -54,14 +54,15 @@ exports.capturePayment = async (req, res) => {
     const options = {
         amount: amount*100,
         currency,
-        receipt: Math.random(Date.now().toString()),
+        //receipt: Math.random(Date.now().toString()),
+        receipt: `receipt_${Date.now()}`,
         notes:{
             courseId: courseId,
             userId
         } 
     }
     try{
-        // inititate the payment using razorpay
+        // initiate the payment using razorpay
         const paymentResponse = await instance.orders.create(options);
         console.log(paymentResponse);
         // return response
@@ -76,10 +77,11 @@ exports.capturePayment = async (req, res) => {
         }); 
     }
     catch(error){
-        console.log(error);
-        res.json({
+        console.log("Razorpay Error:", error);
+        return res.status(500).json({
             success: false,
-            message: "Could not initiate order."
+            message: "Could not initiate order.",
+            error: error.message
         }); 
     }
 
@@ -90,7 +92,7 @@ exports.verifySignature = async (req, res) => {
     const webhookSecret = "12345678";
     const signature = req.headers["x-razorpay-signature"];
     
-    crypto.createHmac("sha256", webhookSecret);
+    const shasum = crypto.createHmac("sha256", webhookSecret);
     shasum.update(JSON.stringify(req.body));
     const digest = shasum.digest("hex");
 
