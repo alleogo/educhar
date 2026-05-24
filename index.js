@@ -1,12 +1,17 @@
 const express = require("express");
 const app = express();
 const cookieParser = require("cookie-parser");
+const fileUpload = require("express-fileupload");
 const { connect } = require("./config/database");
 require("dotenv").config();
 
 // middleware
 app.use(express.json());
 app.use(cookieParser());
+app.use(fileUpload({
+    useTempFiles: true,
+    tempFileDir: "/tmp/",
+}));
 
 // connect DB
 connect();

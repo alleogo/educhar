@@ -2,7 +2,7 @@ const Course = require("../models/Course");
 const User = require("../models/User");
 const Category = require("../models/Category");
 const cloudinary = require("cloudinary").v2;
-const uploadImageToCloudinary = require("../utils/cloudinaryUploader");
+const {uploadImageToCloudinary} = require("../utils/cloudinaryUploader");
 require('dotenv').config();
 
 // createCourse handler function
@@ -10,12 +10,12 @@ exports.createCourse = async (req, res) => {
     try{
         // fetch data
         const {courseName, courseDescription, whatYouWillLearn, price, category} = req.body;
-
-        // get thumbnail: bad mei handle karna hai, thumbnail is a file, so we have to extract it from req.files
-        // const thumbnail = req.body.thumbnail;
+        
+        // get thumbnail from file
+        const thumbnail = req.files?.thumbnail;
 
         // validation
-        if(!courseName || !courseDescription || !whatYouWillLearn || !price || !category){  // || !thumbnail
+        if(!courseName || !courseDescription || !whatYouWillLearn || !price || !category || !thumbnail){
             return res.status(400).json({
                 success: false,
                 message: "Fill all required fields."
@@ -32,20 +32,25 @@ exports.createCourse = async (req, res) => {
         if(!instructorDetails){
             return res.status(404).json({
                 success: false,
-                message: "Instuctor details not found."
+                message: "Instructor details not found."
             });
         }
         // check category validity
         const categoryDetails = await Category.findById(category); // category from req.body is a reference id
         if(!categoryDetails){
-            return res.statu(404).json({
+            return res.status(404).json({
                 success: false,
                 message: "Category details not found"
             });
         }
 
-        // Upload image to cloudinary: 
-        // const thumbnailImage = await uploadImageToCloudinary(thumbnail, process.env.FOLDER_NAME);
+        // upload image to cloudinary
+        const thumbnailImage = await uploadImageToCloudinary(
+            thumbnail, 
+            process.env.FOLDER_NAME,
+            300,  // height
+            80    // quality
+        );
 
         // create an entry for new course
         const newCourse = await Course.create({
@@ -54,26 +59,20 @@ exports.createCourse = async (req, res) => {
             whatYouWillLearn: whatYouWillLearn,  // or simply whatYouWillLearn, 
             price, 
             category: categoryDetails._id,                 //category: category
-            // thumbnail: thumbnailImage.secure_url
+            thumbnail: thumbnailImage.secure_url
         });
 
-        // add new course to user schema of instructor
-        await User.findByIdAndUpdate({_id: instructorDetails._id},
-            {
-                $push: {
-                    courses: newCourse._id
-                }
-            },
+        // add new course to instructor's courses
+        await User.findByIdAndUpdate(
+            {_id: instructorDetails._id},
+            {$push: {courses: newCourse._id}},
             {new: true}
-        );  
+        );
 
-        // update Category schema
-        await Category.findByIdAndUpdate({_id: category},
-            {
-                $push: {
-                    course: newCourse._id
-                }
-            },
+        // update Category
+        await Category.findByIdAndUpdate(
+            {_id: category},
+            {$push: {course: newCourse._id}},
             {new: true}
         );
 
@@ -90,7 +89,7 @@ exports.createCourse = async (req, res) => {
             success: false,
             message: "Failed to create course",
             error: error.message
-        }); 
+        });
     }
 }
 
