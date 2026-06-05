@@ -106,7 +106,7 @@ exports.resetPassword = async (req, res) => {
         console.log(error);
         return res.status(500).json({
             success: false,
-            message: "Someting went wrong while sending password reset email"
+            message: "Something went wrong while sending password reset email"
         });
     }
 }

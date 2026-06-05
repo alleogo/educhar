@@ -18,20 +18,20 @@ exports.createSection = async (req, res) => {
         const newSection = await Section.create({sectionName});
 
         // update Course with sectionId ObjectID
-        const updatedCourseDetails = await Course.findOneAndUpdate({courseId}, 
-                                                        {
-                                                        $push:{
-                                                            courseContent: newSection._id
-                                                        }  
-                                                        },
-                                                        {new:true}
-                                                    );
+        const updatedCourseDetails = await Course.findByIdAndUpdate(courseId, 
+                                                         {
+                                                         $push:{
+                                                             courseContent: newSection._id
+                                                         }  
+                                                         },
+                                                         {new:true}
+                                                     );
         // TODO: use populate to replace sections/sub-sections both in updatedCourseDetails
 
         // return response
         return res.status(200).json({
             success: true,
-            message: "Section created succerssfully.",
+            message: "Section created successfully.",
             updatedCourseDetails
         });
     }

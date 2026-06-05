@@ -32,7 +32,7 @@ exports.sendOTP = async (req, res) => {
         console.log("OTP generated: ", otp);
         
         // check unique otp or not
-        let result = await User.findOne({otp: otp}); // OR: let result = await User.findOne({otp});
+        let result = await OTP.findOne({otp: otp}); // OR: let result = await OTP.findOne({otp});
 
         // generate otp until unique otp is obtained. bekar code hai, ese nhi krte hai, kuchh services use krte h jo hmesha unique otp dete h 
         while(result){
@@ -41,7 +41,7 @@ exports.sendOTP = async (req, res) => {
                 lowerCaseAlphabets: false,
                 specialChars: false
             });
-            result = await User.findOne({otp: otp});
+            result = await OTP.findOne({otp: otp});
         }
 
         // create DB entry of OTP
@@ -149,7 +149,7 @@ exports.signUp = async (req, res) => {
 
         // return response 
         return res.status(200).json({
-            succes: true,
+            success: true,
             message: "User is registerd successfully.",
             user
         });  

@@ -75,7 +75,7 @@ exports.categoryPageDetails = async (req, res) => {
         const differentCatogories = await Category.find(
                                           {_id: {$ne: categoryId}}
                                         )
-                                        .populate("courses").exec();
+                                        .populate("course").exec();
 
         // TODO: HW --> get top 10 selling courses
 

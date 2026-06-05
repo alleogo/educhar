@@ -2,14 +2,14 @@ const Course = require("../models/Course");
 const User = require("../models/User");
 const Category = require("../models/Category");
 const cloudinary = require("cloudinary").v2;
-const {uploadImageToCloudinary} = require("../utils/cloudinaryUploader");
+const uploadImageToCloudinary = require("../utils/cloudinaryUploader");
 require('dotenv').config();
 
 // createCourse handler function
 exports.createCourse = async (req, res) => {
     try{
         // fetch data
-        const {courseName, courseDescription, whatYouWillLearn, price, category} = req.body;
+        const {courseName, courseDescription, whatYouWillLearn, price, category, tag, instructions, status} = req.body;
         
         // get thumbnail from file
         const thumbnail = req.files?.thumbnail;
@@ -52,6 +52,24 @@ exports.createCourse = async (req, res) => {
             80    // quality
         );
 
+        // Parse tag and instructions if they are strings/JSON-strings
+        let parsedTag = [];
+        if (tag) {
+            try {
+                parsedTag = Array.isArray(tag) ? tag : JSON.parse(tag);
+            } catch (e) {
+                parsedTag = [tag];
+            }
+        }
+        let parsedInstructions = [];
+        if (instructions) {
+            try {
+                parsedInstructions = Array.isArray(instructions) ? instructions : JSON.parse(instructions);
+            } catch (e) {
+                parsedInstructions = [instructions];
+            }
+        }
+
         // create an entry for new course
         const newCourse = await Course.create({
             courseName, courseDescription,
@@ -59,7 +77,10 @@ exports.createCourse = async (req, res) => {
             whatYouWillLearn: whatYouWillLearn,  // or simply whatYouWillLearn, 
             price, 
             category: categoryDetails._id,                 //category: category
-            thumbnail: thumbnailImage.secure_url
+            thumbnail: thumbnailImage.secure_url,
+            tag: parsedTag,
+            instructions: parsedInstructions,
+            status: status || "Draft"
         });
 
         // add new course to instructor's courses
@@ -106,7 +127,7 @@ exports.showAllCourses = async (req, res) => {
     }
     catch(error){
         console.log(error);
-        return res.statu(500).json({
+        return res.status(500).json({
             success: false,
             message: "Failed to fetch course data.",
             error: error.message
@@ -149,7 +170,7 @@ exports.getCourseDetails = async (req, res) => {
         // return response
         return res.status(200).json({
             success: true,
-            messasge: "Course detials fetched successfully!",
+            message: "Course details fetched successfully!",
             data: courseDetails
         }); 
     }
