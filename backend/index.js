@@ -1,11 +1,26 @@
+require("dotenv").config();
+global.crypto = require("crypto");
 const express = require("express");
+const cors = require("cors");
 const app = express();
 const cookieParser = require("cookie-parser");
 const fileUpload = require("express-fileupload");
 const { connect } = require("./config/database");
-require("dotenv").config();
 
 // middleware
+app.use(cors({
+    origin: (origin, callback) => {
+        // Allow any localhost / 127.0.0.1 origin (any port) and requests with no origin (e.g. curl, Postman)
+        if (!origin || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
+            callback(null, true);
+        } else {
+            callback(new Error(`CORS blocked for origin: ${origin}`));
+        }
+    },
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"]
+}));
 app.use(express.json());
 app.use(cookieParser());
 app.use(fileUpload({
