@@ -30,11 +30,12 @@ async function sendVerificationEmail(email, otp){
     }
 }
 
-otpSchema.pre("save", async function(next) {
-    sendVerificationEmail(this.email, this.otp)
-        .then(() => next())
-        .catch(next);
-}); 
-
-
+otpSchema.pre("save", async function () {
+    try {
+        await sendVerificationEmail(this.email, this.otp);
+    } catch (error) {
+        console.log("Error sending email:", error);
+        throw error;
+    }
+});
 module.exports = mongoose.model("OTP", otpSchema); 
