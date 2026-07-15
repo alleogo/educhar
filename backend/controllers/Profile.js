@@ -1,33 +1,41 @@
 const Profile = require("../models/Profile");
 const User = require("../models/User");
+const Course = require("../models/Course");
+const CourseProgress = require("../models/CourseProgress");
 
 // updateProfile
 exports.updateProfile = async (req,res) => {
     try{    
         // get data
-        const {dateOfBirth="", about="", contactNumber, gender} = req.body;
+        const {dateOfBirth, about, contactNumber, gender} = req.body;
 
         // get user id  
         const id = req.user.id;
 
-        // validation
-        if(!contactNumber || !gender || !id){
+        // validation — only id is strictly required
+        if(!id){
             return res.status(400).json({
                 success: false,
-                message: "All fields required."
+                message: "User ID is required."
             });
         }
 
         // find profile
         const userDetails = await User.findById(id);
+        if(!userDetails){
+            return res.status(404).json({
+                success: false,
+                message: "User not found."
+            });
+        }
         const profileId = userDetails.additionalDetails;
         const profileDetails = await Profile.findById(profileId); 
 
-        // update profile
-        profileDetails.dateOfBirth = dateOfBirth;
-        profileDetails.contactNumber = contactNumber;
-        profileDetails.about = about;
-        profileDetails.gender = gender;
+        // update only provided fields
+        if(dateOfBirth !== undefined) profileDetails.dateOfBirth = dateOfBirth;
+        if(contactNumber !== undefined) profileDetails.contactNumber = contactNumber;
+        if(about !== undefined) profileDetails.about = about;
+        if(gender !== undefined) profileDetails.gender = gender;
         await profileDetails.save();
 
         // return response  
@@ -64,7 +72,26 @@ exports.deleteAccount = async (req,res) => {
 
         // delete profile
         await Profile.findByIdAndDelete({_id: userDetails.additionalDetails}); 
+        
         // TODO(HW): unenroll user from all enrolled courses  
+        // for(const courseId of userDetails.courses){
+        //     await Course.findOneAndUpdate(
+        //         {_id: courseId}, 
+        //         {
+        //             $pull: {
+        //                 enrolledStudents: _id
+        //             }
+        //         }
+        //     );
+        // }
+
+        // unenroll user from all enrolled courses 
+        if (userDetails.courses.length > 0) {
+            await Course.updateMany(
+                { _id: { $in: userDetails.courses } },
+                { $pull: { enrolledStudents: id } }
+            );
+        }
 
         // delete user
         await User.findByIdAndDelete({_id: id});
@@ -85,7 +112,7 @@ exports.deleteAccount = async (req,res) => {
 }
 
 
-exports.getAllUserDetails = async (req, res) => {
+exports.getUserDetails = async (req, res) => {
     try{
         const id = req.user.id;
         const userDetails = await User.findById(id).populate("additionalDetails").exec(); 

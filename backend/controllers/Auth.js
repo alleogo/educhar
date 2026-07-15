@@ -1,12 +1,11 @@
 const User = require('../models/User');
 const Profile = require('../models/Profile');
 const OTP = require('../models/OTP');
-const otpGenerator = require('otp-generator'); 
+const otpGenerator = require('otp-generator');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
 require('dotenv').config();
-
 
 // sendOTP
 exports.sendOTP = async (req, res) => {
@@ -79,7 +78,8 @@ exports.signUp = async (req, res) => {
             confirmPassword,
             accountType,
             contactNumber,
-            otp
+            otp,
+            adminSecret
         } = req.body;
 
         // validation
@@ -87,6 +87,15 @@ exports.signUp = async (req, res) => {
             return res.status(403).json({
                 success: false,
                 message: "Fill all required fields."
+            });
+        }
+
+        // check if user already exists
+        const existingUser = await User.findOne({email}); 
+        if(existingUser){
+            return res.status(400).json({
+                success: false,
+                message: "User already exists." 
             });
         }
 
@@ -98,13 +107,14 @@ exports.signUp = async (req, res) => {
             });
         } 
 
-        // check if user already exists
-        const existingUser = await User.findOne({email}); 
-        if(existingUser){
-            return res.status(400).json({
-                success: false,
-                message: "User already exists." 
-            });
+        // validate admin secret if trying to register as Admin
+        if(accountType === "Admin"){
+            if(!adminSecret || adminSecret !== process.env.ADMIN_SECRET){
+                return res.status(403).json({
+                    success: false,
+                    message: "Invalid admin secret code. Admin registration denied."
+                });
+            }
         }
 
         // find most recent OTP in DB
@@ -273,7 +283,7 @@ exports.changePassword = async (req, res) => {
             await mailSender(
                 updatedUserDetails.email,
                 "Password Updated",
-                "Your password has been changed successfully."
+                "Your password has been changed successfully <3 "
             );
         }
         catch(error){
