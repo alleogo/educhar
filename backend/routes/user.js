@@ -12,3 +12,5 @@ router.post("/reset-password-token", resetPasswordToken); // tested
 router.post("/reset-password", resetPassword); // tested
 
 module.exports = router;
+
+// user->request(route)->middleware->controller/handler->database(via model)->computation->send response->user
