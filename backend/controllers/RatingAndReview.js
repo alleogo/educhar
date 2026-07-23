@@ -40,7 +40,7 @@ exports.createRating = async (req, res) => {
         }
 
         // create rating and review  
-        const ratingReview = await RatingAndReview.create({rating, review,
+        const ratingReviewId = await RatingAndReview.create({rating, review,
                                                           course: courseId,
                                                           user: userId});
 
@@ -48,7 +48,7 @@ exports.createRating = async (req, res) => {
         const updatedCourseDetails = await Course.findByIdAndUpdate({_id: courseId},
                                        {
                                         $push:{
-                                            ratingAndReviews: ratingReview
+                                            ratingAndReviews: ratingReviewId
                                         }
                                        },
                                        {new: true} );
@@ -73,7 +73,7 @@ exports.createRating = async (req, res) => {
 exports.getAverageRating = async (req, res) => {
     try{
         // get courseId 
-        const courseId = req.body.courseId;
+        const courseId = req.body?.courseId || req.query?.courseId;
 
         // calculate avg rating
         const result = await RatingAndReview.aggregate([
@@ -144,4 +144,46 @@ exports.getAllRatingAndReviews = async (req, res) => {
     }
 }
 
-// getRatingAndReviews
+// deleteRating
+exports.deleteRating = async (req, res) => {
+    try {
+        const { reviewId } = req.params;
+        const userId = req.user.id;
+
+        // Find the review
+        const review = await RatingAndReview.findById(reviewId);
+        if (!review) {
+            return res.status(404).json({
+                success: false,
+                message: "Review not found."
+            });
+        }
+
+        // Ensure the user owns this review
+        if (review.user.toString() !== userId) {
+            return res.status(403).json({
+                success: false,
+                message: "You can only delete your own reviews."
+            });
+        }
+
+        // Remove review reference from the course
+        await Course.findByIdAndUpdate(review.course, {
+            $pull: { ratingAndReviews: reviewId }
+        });
+
+        // Delete the review
+        await RatingAndReview.findByIdAndDelete(reviewId);
+
+        return res.status(200).json({
+            success: true,
+            message: "Review deleted successfully."
+        });
+    } catch (error) {
+        console.log(error);
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+}
