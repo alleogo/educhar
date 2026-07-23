@@ -6,32 +6,32 @@ require("dotenv").config();
 
 // createSubSection
 exports.createSubsection = async (req, res) => {
-    try{
+    try {
         // fetch data form req.body
-        const {sectionId, title, timeDuration, description} = req.body;
+        const { sectionId, title, timeDuration, description } = req.body;
 
         // extract file/video
         const video = req.files?.videoFile;
 
         // Debug logging
-        console.log("Request body:", {sectionId, title, timeDuration, description});
+        console.log("Request body:", { sectionId, title, timeDuration, description });
         console.log("Video file:", video?.name || "NOT FOUND");
         console.log("All files received:", Object.keys(req.files || {}));
         console.log("req.files content:", req.files);
 
         // validation
-        if(!sectionId || !title || !timeDuration || !description || !video){
+        if (!sectionId || !title || !timeDuration || !description || !video) {
             return res.status(400).json({
                 success: false,
                 message: "Missing properties.",
-                debug: {
-                    sectionId: !!sectionId,
-                    title: !!title,
-                    timeDuration: !!timeDuration,
-                    description: !!description,
-                    video: !!video
-                }
-            }); 
+                // debug: {
+                //     sectionId: !!sectionId,
+                //     title: !!title,
+                //     timeDuration: !!timeDuration,
+                //     description: !!description,
+                //     video: !!video
+                // }
+            });
         }
 
         // upload file/video to cloudinary
@@ -46,16 +46,16 @@ exports.createSubsection = async (req, res) => {
         });
 
         // update section with sub-section ObjectID
-        const updatedSection = await Section.findByIdAndUpdate({_id:sectionId},
-                                                               {
-                                                                $push: {
-                                                                    subSection: subSectionDetails._id
-                                                                }
-                                                               },
-                                                               {new: true}
-                                                            );
+        const updatedSection = await Section.findByIdAndUpdate(sectionId,
+            {
+                $push: {
+                    subSection: subSectionDetails._id
+                }
+            },
+            { new: true }
+        ).populate("subSection");
         // TODO: log updated section here, after adding populate query
-        
+
         // return response
         return res.status(200).json({
             success: true,
@@ -63,7 +63,7 @@ exports.createSubsection = async (req, res) => {
             updatedSection
         });
     }
-    catch(error){
+    catch (error) {
         console.error("SubSection creation error:", error);
         return res.status(500).json({
             success: false,
@@ -76,7 +76,7 @@ exports.createSubsection = async (req, res) => {
 
 // updateSubSection
 exports.updateSubSection = async (req, res) => {
-    try{
+    try {
 
         // fetch data
         const {
@@ -89,10 +89,10 @@ exports.updateSubSection = async (req, res) => {
         const video = req.files?.videoFile;
 
         // validation
-        if(!subSectionId){
+        if (!subSectionId) {
             return res.status(400).json({
-                success:false,
-                message:"SubSection ID is required."
+                success: false,
+                message: "SubSection ID is required."
             });
         }
 
@@ -100,25 +100,25 @@ exports.updateSubSection = async (req, res) => {
         const subSection =
             await SubSection.findById(subSectionId);
 
-        if(!subSection){
+        if (!subSection) {
             return res.status(404).json({
-                success:false,
-                message:"SubSection not found."
+                success: false,
+                message: "SubSection not found."
             });
         }
 
         // update only provided fields
-        if(title)
+        if (title)
             subSection.title = title;
 
-        if(description)
+        if (description)
             subSection.description = description;
 
-        if(timeDuration)
+        if (timeDuration)
             subSection.timeDuration = timeDuration;
 
         // upload new video if exists
-        if(video){
+        if (video) {
 
             const uploadDetails =
                 await uploadImageToCloudinary(
@@ -133,20 +133,18 @@ exports.updateSubSection = async (req, res) => {
         await subSection.save();
 
         return res.status(200).json({
-            success:true,
+            success: true,
             message:
-            "SubSection updated successfully.",
-            data:subSection
+                "SubSection updated successfully.",
+            data: subSection
         });
 
     }
-    catch(error){
-
+    catch (error) {
         console.log(error);
-
         return res.status(500).json({
-            success:false,
-            message:error.message
+            success: false,
+            message: error.message
         });
     }
 };
@@ -154,8 +152,8 @@ exports.updateSubSection = async (req, res) => {
 
 
 // deleteSubSection
-exports.deleteSubSection = async (req,res)=>{
-    try{
+exports.deleteSubSection = async (req, res) => {
+    try {
 
         // fetch data
         const {
@@ -164,14 +162,14 @@ exports.deleteSubSection = async (req,res)=>{
         } = req.body;
 
         // validation
-        if(
+        if (
             !sectionId ||
             !subSectionId
-        ){
+        ) {
             return res.status(400).json({
-                success:false,
+                success: false,
                 message:
-                "Missing properties."
+                    "Missing properties."
             });
         }
 
@@ -180,12 +178,12 @@ exports.deleteSubSection = async (req,res)=>{
         await Section.findByIdAndUpdate(
             sectionId,
             {
-                $pull:{
+                $pull: {
                     subSection:
-                    subSectionId
+                        subSectionId
                 }
             },
-            {new:true}
+            { new: true }
         );
 
         // delete subsection
@@ -194,29 +192,26 @@ exports.deleteSubSection = async (req,res)=>{
                 subSectionId
             );
 
-        if(!deletedSubSection){
-
+        if (!deletedSubSection) {
             return res.status(404).json({
-                success:false,
+                success: false,
                 message:
-                "SubSection not found."
+                    "SubSection not found."
             });
         }
 
         return res.status(200).json({
-            success:true,
+            success: true,
             message:
-            "SubSection deleted successfully."
+                "SubSection deleted successfully."
         });
 
     }
-    catch(error){
-
+    catch (error) {
         console.log(error);
-
         return res.status(500).json({
-            success:false,
-            message:error.message
+            success: false,
+            message: error.message
         });
     }
 };
