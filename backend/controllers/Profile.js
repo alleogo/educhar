@@ -131,3 +131,37 @@ exports.getUserDetails = async (req, res) => {
         });
     }
 }
+
+// getEnrolledCourses - Get all courses enrolled by student
+exports.getEnrolledCourses = async (req, res) => {
+    try {
+        const userId = req.user.id;
+
+        // Get student with populated courses
+        const student = await User.findById(userId)
+            .populate({
+                path: "courses",
+                select: "courseName courseDescription price thumbnail instructor"
+            });
+
+        if (!student) {
+            return res.status(404).json({
+                success: false,
+                message: "Student not found."
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            enrolledCourses: student.courses,
+            totalCourses: student.courses.length
+        });
+    }
+    catch (error) {
+        console.error(error);
+        return res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+}
