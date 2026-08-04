@@ -78,12 +78,29 @@ exports.categoryPageDetails = async (req, res) => {
             });
         }
 
+        // get courses for other categories
+        const differentCategories = await Category.find({ _id: { $ne: categoryId } })
+            .populate({
+                path: "course",
+                populate: {
+                    path: "instructor"
+                }
+            }).exec();
+
+        // get top selling courses
+        const topSellingCourses = await Course.find({})
+            .sort({ enrolledStudents: -1 })
+            .limit(10)
+            .populate("instructor")
+            .exec();
+
         // return response
         return res.status(200).json({
             success: true,
             data: {
                 selectedCategory,
-                differentCatogories
+                differentCategories,
+                topSellingCourses
             }
         });
     }
