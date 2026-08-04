@@ -39,11 +39,10 @@ export default function Navbar() {
           {location.pathname !== '/catalog' && location.pathname !== '/' && (
             <button 
               onClick={() => navigate(-1)} 
-              className="btn btn-secondary btn-sm" 
-              style={{ padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid var(--color-border)' }}
+              style={{ padding: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px', color: 'white', cursor: 'pointer' }}
               title="Go Back"
             >
-              <ArrowLeft size={18} />
+              <ArrowLeft size={20} />
             </button>
           )}
           <div className="nav-brand" onClick={() => navigate('/catalog')} style={{ cursor: 'pointer' }}>

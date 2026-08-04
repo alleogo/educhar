@@ -16,7 +16,7 @@ export function AppProvider({ children }) {
   const [selectedRatingValue, setSelectedRatingValue] = useState(5);
 
   useEffect(() => {
-    const savedUser = api.getUser();
+    const savedUser = api.getCurrentUser();
     if (savedUser) {
       setUser(savedUser);
     }
