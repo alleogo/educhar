@@ -63,8 +63,6 @@ exports.createCourse = async (req, res) => {
             price,
             category: categoryDetails._id,                 //category: category
             thumbnail: thumbnailImage.secure_url,
-
-            instructions: parsedInstructions
         });
 
         // add new course to instructor's courses
