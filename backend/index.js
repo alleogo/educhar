@@ -10,12 +10,8 @@ const { connect } = require("./config/database");
 // middleware
 app.use(cors({
     origin: (origin, callback) => {
-        // Allow any localhost / 127.0.0.1 origin (any port) and requests with no origin (e.g. curl, Postman)
-        if (!origin || /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)) {
-            callback(null, true);
-        } else {
-            callback(new Error(`CORS blocked for origin: ${origin}`));
-        }
+        // Allow any origin for now (or configure specifically for your domains)
+        callback(null, true);
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
