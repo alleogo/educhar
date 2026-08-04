@@ -16,8 +16,10 @@ export function AppProvider({ children }) {
   const [selectedRatingValue, setSelectedRatingValue] = useState(5);
 
   useEffect(() => {
-    api.clearSession();
-
+    const savedUser = api.getUser();
+    if (savedUser) {
+      setUser(savedUser);
+    }
     async function loadCommonData() {
       try {
         const catData = await api.getAllCategories();

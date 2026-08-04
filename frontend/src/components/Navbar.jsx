@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
-import { ChevronDown, User, LogOut } from 'lucide-react';
+import { ChevronDown, User, LogOut, ArrowLeft } from 'lucide-react';
 
 export default function Navbar() {
   const { user, setUser } = useAppContext();
@@ -35,8 +35,20 @@ export default function Navbar() {
   return (
     <header className="navbar-wrapper">
       <nav className="navbar container">
-        <div className="nav-brand" onClick={() => navigate('/catalog')} style={{ cursor: 'pointer' }}>
-          <span className="logo-text">Edu<span className="gradient-text">Char</span></span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          {location.pathname !== '/catalog' && location.pathname !== '/' && (
+            <button 
+              onClick={() => navigate(-1)} 
+              className="btn btn-secondary btn-sm" 
+              style={{ padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'transparent', border: '1px solid var(--color-border)' }}
+              title="Go Back"
+            >
+              <ArrowLeft size={18} />
+            </button>
+          )}
+          <div className="nav-brand" onClick={() => navigate('/catalog')} style={{ cursor: 'pointer' }}>
+            <span className="logo-text">Edu<span className="gradient-text">Char</span></span>
+          </div>
         </div>
 
         <div className="nav-links">
