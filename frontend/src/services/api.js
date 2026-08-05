@@ -273,6 +273,13 @@ export const api = {
     // ======================================================================
     // PROFILE ENDPOINTS
     // ======================================================================
+    async updateDisplayPicture(formData) {
+        return this.request("profile/updatedisplaypicture", {
+            method: "PUT",
+            body: formData
+        });
+    },
+
     async updateProfile(profileData) {
         return this.request("profile/updateprofile", {
             method: "PUT",

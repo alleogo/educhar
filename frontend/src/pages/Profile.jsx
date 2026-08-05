@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { api } from '../services/api';
@@ -7,8 +7,10 @@ import toast from 'react-hot-toast';
 export default function Profile() {
   const navigate = useNavigate();
   const { user, setUser } = useAppContext();
-  const [profile, setProfile] = useState({ gender: 'Male', dateOfBirth: '', contactNumber: '', about: '' });
+  const [profile, setProfile] = useState({ firstName: '', lastName: '', email: '', gender: 'Male', dateOfBirth: '', contactNumber: '', about: '' });
   const [passwords, setPasswords] = useState({ oldPassword: '', newPassword: '', confirmNewPassword: '' });
+  const [loadingImage, setLoadingImage] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (!user) { navigate('/login'); return; }
@@ -18,8 +20,12 @@ export default function Profile() {
   const loadProfile = async () => {
     try {
       const resp = await api.getUserDetails();
-      const p = resp.data?.additionalDetails || {};
+      const userData = resp.data || {};
+      const p = userData.additionalDetails || {};
       setProfile({
+        firstName: userData.firstName || user?.firstName || '',
+        lastName: userData.lastName || user?.lastName || '',
+        email: userData.email || user?.email || '',
         gender: p.gender || 'Male',
         dateOfBirth: p.dateOfBirth || '',
         contactNumber: p.contactNumber || '',
@@ -33,10 +39,41 @@ export default function Profile() {
   const handleProfileUpdate = async (e) => {
     e.preventDefault();
     try {
-      await api.updateProfile(profile);
+      const res = await api.updateProfile(profile);
       toast.success('Profile details updated successfully!');
+      
+      // Update global user state with new name/email
+      if (res.user) {
+        const updatedUser = { ...user, ...res.user };
+        setUser(updatedUser);
+        api.setSession(api.getToken(), updatedUser);
+      }
     } catch (err) {
-      toast.error('Failed to update profile details.');
+      toast.error(err.message || 'Failed to update profile details.');
+    }
+  };
+
+  const handleImageUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setLoadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append('displayPicture', file);
+      
+      const res = await api.updateDisplayPicture(formData);
+      toast.success('Profile picture updated successfully!');
+      
+      if (res.data) {
+        const updatedUser = { ...user, image: res.data.image };
+        setUser(updatedUser);
+        api.setSession(api.getToken(), updatedUser);
+      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to update profile picture.');
+    } finally {
+      setLoadingImage(false);
     }
   };
 
@@ -72,22 +109,49 @@ export default function Profile() {
 
   return (
     <div className="container mt-4" style={{ maxWidth: '600px', paddingBottom: '48px', animation: 'fadeUp 0.5s ease-out forwards', opacity: 0 }}>
+      
+      <div className="glass-panel mb-4" style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+        <img 
+          src={user.image} 
+          alt={`profile-${user.firstName}`} 
+          style={{ width: '80px', height: '80px', borderRadius: '50%', objectFit: 'cover', opacity: loadingImage ? 0.5 : 1 }}
+        />
+        <div>
+          <h3>Profile Picture</h3>
+          <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginBottom: '12px' }}>PNG, JPG, or GIF up to 5MB.</p>
+          <input 
+            type="file" 
+            ref={fileInputRef}
+            onChange={handleImageUpload}
+            style={{ display: 'none' }}
+            accept="image/png, image/gif, image/jpeg"
+          />
+          <button 
+            className="btn btn-outline"
+            onClick={() => fileInputRef.current.click()}
+            disabled={loadingImage}
+          >
+            {loadingImage ? 'Uploading...' : 'Upload New Picture'}
+          </button>
+        </div>
+      </div>
+
       <div className="glass-panel mb-4">
         <h2>Edit Profile</h2>
         <form onSubmit={handleProfileUpdate}>
           <div className="grid-2">
             <div className="form-group">
-              <label>First Name</label>
-              <input type="text" className="form-input" value={user.firstName} disabled />
+              <label>First Name*</label>
+              <input type="text" className="form-input" required value={profile.firstName} onChange={(e) => setProfile({ ...profile, firstName: e.target.value })} />
             </div>
             <div className="form-group">
-              <label>Last Name</label>
-              <input type="text" className="form-input" value={user.lastName} disabled />
+              <label>Last Name*</label>
+              <input type="text" className="form-input" required value={profile.lastName} onChange={(e) => setProfile({ ...profile, lastName: e.target.value })} />
             </div>
           </div>
           <div className="form-group">
-            <label>Email Address</label>
-            <input type="text" className="form-input" value={user.email} disabled />
+            <label>Email Address*</label>
+            <input type="email" className="form-input" required value={profile.email} onChange={(e) => setProfile({ ...profile, email: e.target.value })} />
           </div>
           <div className="grid-2">
             <div className="form-group">

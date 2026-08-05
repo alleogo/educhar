@@ -57,7 +57,10 @@ export default function CourseViewer() {
       setShowSectionModal(false);
       setSectionForm({ name: '' });
       loadCourseViewer();
-    } catch (err) { toast.error('Failed to create section.'); }
+    } catch (err) { 
+        console.error("Create Section Error:", err);
+        toast.error(err.message || 'Failed to create section.'); 
+    }
   };
 
   const handleSectionEdit = async (e) => {
