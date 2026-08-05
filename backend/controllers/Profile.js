@@ -2,12 +2,53 @@ const Profile = require("../models/Profile");
 const User = require("../models/User");
 const Course = require("../models/Course");
 const CourseProgress = require("../models/CourseProgress");
+const RatingAndReview = require("../models/RatingAndReview");
+const uploadImageToCloudinary = require("../utils/cloudinaryUploader");
+
+exports.updateDisplayPicture = async (req, res) => {
+    try {
+        const displayPicture = req.files?.displayPicture;
+        const userId = req.user.id;
+        
+        if (!displayPicture) {
+            return res.status(404).json({
+                success: false,
+                message: "No image file provided."
+            });
+        }
+        
+        const image = await uploadImageToCloudinary(
+            displayPicture,
+            process.env.FOLDER_NAME || "educhar",
+            1000,
+            1000
+        );
+        
+        const updatedProfile = await User.findByIdAndUpdate(
+            { _id: userId },
+            { image: image.secure_url },
+            { new: true }
+        );
+        
+        res.send({
+            success: true,
+            message: "Image updated successfully.",
+            data: updatedProfile,
+        });
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: "Failed to update profile picture.",
+            error: error.message,
+        });
+    }
+};
 
 // updateProfile
 exports.updateProfile = async (req,res) => {
     try{    
         // get data
-        const {dateOfBirth, about, contactNumber, gender} = req.body;
+        const {dateOfBirth, about, contactNumber, gender, firstName, lastName, email} = req.body;
 
         // get user id  
         const id = req.user.id;
@@ -28,6 +69,29 @@ exports.updateProfile = async (req,res) => {
                 message: "User not found."
             });
         }
+        
+        // update User specific fields
+        let userUpdated = false;
+        if (email && email !== userDetails.email) {
+            const existingUser = await User.findOne({ email });
+            if (existingUser) {
+                return res.status(400).json({ success: false, message: "Email is already in use." });
+            }
+            userDetails.email = email;
+            userUpdated = true;
+        }
+        if (firstName !== undefined && firstName.trim() !== "") {
+            userDetails.firstName = firstName;
+            userUpdated = true;
+        }
+        if (lastName !== undefined && lastName.trim() !== "") {
+            userDetails.lastName = lastName;
+            userUpdated = true;
+        }
+        if (userUpdated) {
+            await userDetails.save();
+        }
+
         const profileId = userDetails.additionalDetails;
         const profileDetails = await Profile.findById(profileId); 
 
@@ -42,7 +106,12 @@ exports.updateProfile = async (req,res) => {
         return res.status(200).json({
             success: true,
             message: "Profile updated successfully.",
-            profileDetails
+            profileDetails,
+            user: {
+                firstName: userDetails.firstName,
+                lastName: userDetails.lastName,
+                email: userDetails.email
+            }
         });
     }
     catch(error){
@@ -86,15 +155,51 @@ exports.deleteAccount = async (req,res) => {
         // }
 
         // unenroll user from all enrolled courses 
-        if (userDetails.courses.length > 0) {
+        if (userDetails.courses && userDetails.courses.length > 0) {
             await Course.updateMany(
                 { _id: { $in: userDetails.courses } },
                 { $pull: { enrolledStudents: id } }
             );
         }
 
+        // delete all CourseProgress associated with user
+        if (userDetails.courseProgress && userDetails.courseProgress.length > 0) {
+            await CourseProgress.deleteMany({ _id: { $in: userDetails.courseProgress } });
+        }
+
+        // delete all Ratings and Reviews authored by the user
+        await RatingAndReview.deleteMany({ user: id });
+
+        // if user is an Instructor, their created courses should ideally be deleted as well
+        // (alternatively, they could be reassigned, but for now we delete them to avoid orphaned courses)
+        if (userDetails.accountType === "Instructor") {
+            const instructorCourses = await Course.find({ instructor: id });
+            for (const course of instructorCourses) {
+                // Remove course from category
+                await require("../models/Category").findByIdAndUpdate(course.category, {
+                    $pull: { course: course._id }
+                });
+                // Delete all sections and subsections
+                const sections = course.courseContent || [];
+                for (const sectionId of sections) {
+                    const section = await require("../models/Section").findById(sectionId);
+                    if (section) {
+                        if (section.subSection && section.subSection.length > 0) {
+                            await require("../models/SubSection").deleteMany({ _id: { $in: section.subSection } });
+                        }
+                        await require("../models/Section").findByIdAndDelete(sectionId);
+                    }
+                }
+                // Delete course progress and ratings for this course
+                await CourseProgress.deleteMany({ courseID: course._id });
+                await RatingAndReview.deleteMany({ course: course._id });
+                // Delete the course
+                await Course.findByIdAndDelete(course._id);
+            }
+        }
+
         // delete user
-        await User.findByIdAndDelete({_id: id});
+        await User.findByIdAndDelete(id);
 
         // return response
         return res.status(200).json({

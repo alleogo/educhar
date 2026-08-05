@@ -205,14 +205,14 @@ exports.logIn = async (req, res) => {
                 accountType: user.accountType
             }
             const token = jwt.sign(payload, process.env.JWT_SECRET, {
-                expiresIn: '10m'
+                expiresIn: '2h'
             });
             user.token = token;
             user.password = undefined;
 
             // create cookie and send response
             const options = {
-                expires: new Date(Date.now() + 10 * 60 * 1000), // 10 minutes
+                expires: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours
                 httpOnly: true
             }
             res.cookie("token", token, options).status(200).json({  // res.cookie("cookieName, cookie, options")

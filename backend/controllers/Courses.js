@@ -3,6 +3,10 @@ const User = require("../models/User");
 const Category = require("../models/Category");
 const cloudinary = require("cloudinary").v2;
 const uploadImageToCloudinary = require("../utils/cloudinaryUploader");
+const Section = require("../models/Section");
+const SubSection = require("../models/SubSection");
+const CourseProgress = require("../models/CourseProgress");
+const RatingAndReview = require("../models/RatingAndReview");
 require('dotenv').config();
 
 // createCourse handler function
@@ -260,9 +264,6 @@ exports.updateCourse = async (req, res) => {
 }
 
 // deleteCourse
-const Section = require("../models/Section");
-const SubSection = require("../models/SubSection");
-
 exports.deleteCourse = async (req, res) => {
     try {
         const { courseId } = req.params;
@@ -305,6 +306,12 @@ exports.deleteCourse = async (req, res) => {
                 await Section.findByIdAndDelete(sectionId);
             }
         }
+
+        // Delete CourseProgress associated with this course
+        await CourseProgress.deleteMany({ courseID: courseId });
+
+        // Delete RatingAndReview associated with this course
+        await RatingAndReview.deleteMany({ course: courseId });
 
         // Remove course from its category
         if (course.category) {
