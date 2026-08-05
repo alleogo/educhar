@@ -118,7 +118,8 @@ exports.signUp = async (req, res) => {
         }
 
         // find most recent OTP in DB
-        const recentOtp = await OTP.findOne({email}).sort({createdAt:-1}).limit(1);
+        const recentOtpArray = await OTP.find({email}).sort({createdAt:-1}).limit(1);
+        const recentOtp = recentOtpArray.length > 0 ? recentOtpArray[0] : null;
                 // .sort({created:-1}).limit(1) iska meaning dekhna hai
         console.log(recentOtp);   
 
@@ -189,7 +190,7 @@ exports.logIn = async (req, res) => {
         }
 
         // check user exists or not
-        const user = await User.findOne({email});
+        const user = await User.findOne({email}).populate("additionalDetails");
         if(!user){
             return res.status(401).json({
                 success: false,

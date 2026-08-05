@@ -140,7 +140,7 @@ export default function InstructorDashboard() {
             </div>
             <div>
               <div className="stat-num">{totalStudents}</div>
-              <div className="stat-label">Total Students</div>
+              <div className="stat-label">Total Enrollments</div>
             </div>
           </div>
         </div>

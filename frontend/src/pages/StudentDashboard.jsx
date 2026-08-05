@@ -16,8 +16,8 @@ function EnrolledCourseCard({ course }) {
     if (total > 0) {
       api.getCourseProgress(course._id)
         .then(resp => {
-          if (resp.completedVideos) {
-            setProgress(Math.round((resp.completedVideos.length / total) * 100));
+          if (resp.data?.completedVideos) {
+            setProgress(Math.round((resp.data.completedVideos.length / total) * 100));
           }
         })
         .catch(console.warn);

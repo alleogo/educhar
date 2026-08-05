@@ -37,7 +37,7 @@ export default function CourseViewer() {
 
       if (user?.accountType === 'Student') {
         const progResp = await api.getCourseProgress(courseId);
-        setCompletedVideos(progResp.completedVideos || []);
+        setCompletedVideos(progResp.data?.completedVideos || []);
       }
     } catch (e) {
       toast.error('Failed to load course viewer.');
