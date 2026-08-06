@@ -52,9 +52,7 @@ exports.createCourse = async (req, res) => {
         // upload image to cloudinary
         const thumbnailImage = await uploadImageToCloudinary(
             thumbnail,
-            process.env.FOLDER_NAME,
-            300,  // height
-            80    // quality
+            process.env.FOLDER_NAME
         );
 
 
@@ -239,9 +237,7 @@ exports.updateCourse = async (req, res) => {
         if (req.files?.thumbnail) {
             const thumbnailImage = await uploadImageToCloudinary(
                 req.files.thumbnail,
-                process.env.FOLDER_NAME,
-                300,
-                80
+                process.env.FOLDER_NAME
             );
             course.thumbnail = thumbnailImage.secure_url;
         }
