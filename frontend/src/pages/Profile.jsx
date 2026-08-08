@@ -7,7 +7,15 @@ import toast from 'react-hot-toast';
 export default function Profile() {
   const navigate = useNavigate();
   const { user, setUser } = useAppContext();
-  const [profile, setProfile] = useState({ firstName: '', lastName: '', email: '', gender: 'Male', dateOfBirth: '', contactNumber: '', about: '' });
+  const [profile, setProfile] = useState({
+    firstName: user?.firstName || '',
+    lastName: user?.lastName || '',
+    email: user?.email || '',
+    gender: 'Male',
+    dateOfBirth: '',
+    contactNumber: '',
+    about: ''
+  });
   const [passwords, setPasswords] = useState({ oldPassword: '', newPassword: '', confirmNewPassword: '' });
   const [loadingImage, setLoadingImage] = useState(false);
   const fileInputRef = useRef(null);
@@ -33,6 +41,13 @@ export default function Profile() {
       });
     } catch (e) {
       console.warn('Could not load profile details.', e);
+      // Fallback: populate from user context so inputs aren't frozen
+      setProfile(prev => ({
+        ...prev,
+        firstName: prev.firstName || user?.firstName || '',
+        lastName: prev.lastName || user?.lastName || '',
+        email: prev.email || user?.email || '',
+      }));
     }
   };
 
