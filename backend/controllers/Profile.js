@@ -244,7 +244,13 @@ exports.getEnrolledCourses = async (req, res) => {
         const student = await User.findById(userId)
             .populate({
                 path: "courses",
-                select: "courseName courseDescription price thumbnail instructor"
+                select: "courseName courseDescription price thumbnail instructor courseContent",
+                populate: {
+                    path: "courseContent",
+                    populate: {
+                        path: "subSection"
+                    }
+                }
             });
 
         if (!student) {

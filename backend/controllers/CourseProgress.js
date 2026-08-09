@@ -29,15 +29,16 @@ exports.updateCourseProgress = async (req, res) => {
         if (!progressDoc) {
             progressDoc = await CourseProgress.create({
                 courseID: courseId,
-                completedVideos: []
+                completedVideos: [subSectionId]
             });
             user.courseProgress.push(progressDoc._id);
             await user.save();
-        }
-
-        if (!progressDoc.completedVideos.some((id) => id.toString() === subSectionId.toString())) {
-            progressDoc.completedVideos.push(subSectionId);
-            await progressDoc.save();
+        } else {
+            progressDoc = await CourseProgress.findByIdAndUpdate(
+                progressDoc._id,
+                { $addToSet: { completedVideos: subSectionId } },
+                { new: true }
+            );
         }
 
         return res.status(200).json({
@@ -86,15 +87,16 @@ exports.unmarkCourseProgress = async (req, res) => {
             });
         }
 
-        progressDoc.completedVideos = progressDoc.completedVideos.filter(
-            (id) => id.toString() !== subSectionId.toString()
+        const updatedProgress = await CourseProgress.findByIdAndUpdate(
+            progressDoc._id,
+            { $pull: { completedVideos: subSectionId } },
+            { new: true }
         );
-        await progressDoc.save();
 
         return res.status(200).json({
             success: true,
             message: "Course progress removed successfully.",
-            data: progressDoc
+            data: updatedProgress
         });
     } catch (error) {
         console.error(error);

@@ -129,17 +129,21 @@ export default function CourseViewer() {
 
   const markLessonComplete = async (subSectionId) => {
     try {
-      await api.updateCourseProgress(courseId, subSectionId);
+      const res = await api.updateCourseProgress(courseId, subSectionId);
+      if (res?.data?.completedVideos) {
+        setCompletedVideos(res.data.completedVideos);
+      }
       toast.success('Lesson marked as completed!');
-      loadCourseViewer();
     } catch (err) { toast.error('Failed to mark lesson completed'); }
   };
 
   const unmarkLessonComplete = async (subSectionId) => {
     try {
-      await api.unmarkCourseProgress(courseId, subSectionId);
+      const res = await api.unmarkCourseProgress(courseId, subSectionId);
+      if (res?.data?.completedVideos) {
+        setCompletedVideos(res.data.completedVideos);
+      }
       toast.success('Lesson unmarked!');
-      loadCourseViewer();
     } catch (err) { toast.error('Failed to unmark lesson'); }
   };
 
