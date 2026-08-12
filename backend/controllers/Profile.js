@@ -245,12 +245,17 @@ exports.getEnrolledCourses = async (req, res) => {
             .populate({
                 path: "courses",
                 select: "courseName courseDescription price thumbnail instructor courseContent",
-                populate: {
-                    path: "courseContent",
-                    populate: {
-                        path: "subSection"
+                populate: [
+                    {
+                        path: "courseContent",
+                        populate: {
+                            path: "subSection"
+                        }
+                    },
+                    {
+                        path: "instructor"
                     }
-                }
+                ]
             });
 
         if (!student) {
