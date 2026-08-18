@@ -175,7 +175,7 @@ const enrollStudent = async (courseId, userId, res) => {
 
     // find course and enroll student in it
     const enrolledCourse = await Course.findByIdAndUpdate(courseId,
-        { $push: { enrolledStudents: userId } },
+        { $addToSet: { enrolledStudents: userId } },
         { new: true }
     );
     if (!enrolledCourse) {
@@ -184,7 +184,7 @@ const enrollStudent = async (courseId, userId, res) => {
 
     // find the student and add course in list of enrolled course
     const enrolledStudent = await User.findByIdAndUpdate(userId,
-        { $push: { courses: courseId } },
+        { $addToSet: { courses: courseId } },
         { new: true }
     );
 
