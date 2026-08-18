@@ -99,7 +99,7 @@ export default function Profile() {
       return;
     }
     try {
-      await api.changePassword(passwords.oldPassword, passwords.newPassword);
+      await api.changePassword(passwords.oldPassword, passwords.newPassword, passwords.confirmNewPassword);
       toast.success('Password updated successfully!');
       setPasswords({ oldPassword: '', newPassword: '', confirmNewPassword: '' });
     } catch (err) {

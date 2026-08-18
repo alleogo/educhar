@@ -256,6 +256,21 @@ exports.changePassword = async (req, res) => {
         // fetch data
         const {oldPassword, newPassword, confirmNewPassword} = req.body;
 
+        if(!oldPassword || !newPassword){
+            return res.status(400).json({
+                success: false,
+                message: "Please provide both old and new passwords."
+            });
+        }
+
+        // check new password and confirm password if confirmNewPassword is provided
+        if(confirmNewPassword && newPassword !== confirmNewPassword){
+            return res.status(400).json({
+                success: false,
+                message: "Passwords do not match."
+            });
+        }
+
         // get user details from auth middleware
         const userDetails = await User.findById(req.user.id);
 
@@ -269,14 +284,6 @@ exports.changePassword = async (req, res) => {
             return res.status(401).json({
                 success: false,
                 message: "Old password is incorrect."
-            });
-        }
-
-        // check new password and confirm password
-        if(newPassword !== confirmNewPassword){
-            return res.status(400).json({
-                success: false,
-                message: "Passwords do not match."
             });
         }
 

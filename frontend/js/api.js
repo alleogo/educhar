@@ -92,10 +92,10 @@ export const api = {
         });
     },
 
-    async changePassword(oldPassword, newPassword) {
+    async changePassword(oldPassword, newPassword, confirmNewPassword = newPassword) {
         return this.request("auth/changepassword", {
             method: "POST",
-            body: { oldPassword, newPassword }
+            body: { oldPassword, newPassword, confirmNewPassword }
         });
     },
 
