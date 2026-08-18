@@ -12,7 +12,13 @@ require('dotenv').config();
 exports.sendOTP = async (req, res) => {
     try{
         // fetch email from req.body
-        const {email} = req.body;
+        const email = req.body.email?.trim().toLowerCase();
+        if(!email){
+            return res.status(400).json({
+                success: false,
+                message: "Please provide a valid email address."
+            });
+        }
         // check if user already exists
         const checkUserExistence = await User.findOne({email});
         // if user already exists
@@ -91,8 +97,10 @@ exports.signUp = async (req, res) => {
             });
         }
 
+        const normalizedEmail = email.trim().toLowerCase();
+
         // check if user already exists
-        const existingUser = await User.findOne({email}); 
+        const existingUser = await User.findOne({email: normalizedEmail}); 
         if(existingUser){
             return res.status(400).json({
                 success: false,
@@ -119,9 +127,8 @@ exports.signUp = async (req, res) => {
         }
 
         // find most recent OTP in DB
-        const recentOtpArray = await OTP.find({email}).sort({createdAt:-1}).limit(1);
+        const recentOtpArray = await OTP.find({email: normalizedEmail}).sort({createdAt:-1}).limit(1);
         const recentOtp = recentOtpArray.length > 0 ? recentOtpArray[0] : null;
-                // .sort({created:-1}).limit(1) iska meaning dekhna hai
         console.log(recentOtp);   
 
         // validate OTP
@@ -152,7 +159,7 @@ exports.signUp = async (req, res) => {
         });
 
         const user = await User.create({
-            firstName, lastName, email, contactNumber, 
+            firstName, lastName, email: normalizedEmail, contactNumber, 
             password: hashedPassword,
             accountType,
             additionalDetails: profileDetails._id,
