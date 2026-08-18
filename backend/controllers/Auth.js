@@ -166,6 +166,9 @@ exports.signUp = async (req, res) => {
             image: `https://api.dicebear.com/5.x/initials/svg?seed=${firstName} ${lastName}`
         });
 
+        // Delete used OTPs for this email
+        await OTP.deleteMany({ email: normalizedEmail });
+
         // return response 
         return res.status(200).json({
             success: true,
