@@ -5,6 +5,7 @@ const otpGenerator = require('otp-generator');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const mailSender = require('../utils/mailSender');
+const otpTemplate = require('../mail/templates/emailVerificationTemplate');
 
 require('dotenv').config();
 
@@ -53,14 +54,17 @@ exports.sendOTP = async (req, res) => {
         // create DB entry of OTP
         const otpPayload = {email, otp};
         const otpBody = await OTP.create(otpPayload);   // const optBody = await OTP.create({email, otp});
-        console.log(otpBody);
+        console.log("OTP Body: ", otpBody);
 
-        // return successul response
+        // send verification email
+        await mailSender(email, "Verification Email from EduChar", otpTemplate(otp));
+
+        // return successful response
         return res.status(200).json({
             success: true,
             message: "OTP sent successfully",
             otp 
-        })
+        });
 
     }
     catch(error){
