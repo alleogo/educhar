@@ -98,19 +98,38 @@ exports.verifyPayment = async (req, res) => {
     }
 
     try {
-        const body = razorpay_order_id + "|" + razorpay_payment_id;
+        // 1. Signature: proves Razorpay issued this payment for this order (constant-time compare)
         const expectedSignature = crypto.createHmac("sha256", process.env.RAZORPAY_SECRET)
-            .update(body.toString())
+            .update(`${razorpay_order_id}|${razorpay_payment_id}`)
             .digest("hex");
-
-        if (expectedSignature === razorpay_signature) {
-            // Enroll student
-            await enrollStudent(courseId, userId, res);
-            return res.status(200).json({ success: true, message: "Payment verified and student enrolled" });
+        const expected = Buffer.from(expectedSignature);
+        const received = Buffer.from(String(razorpay_signature));
+        if (expected.length !== received.length || !crypto.timingSafeEqual(expected, received)) {
+            return res.status(400).json({ success: false, message: "Invalid payment signature" });
         }
-        return res.status(400).json({ success: false, message: "Payment failed" });
+
+        // 2. The order must be one WE created for THIS user and THIS course.
+        //    Notes are written server-side in capturePayment and can't be altered by the client,
+        //    so a cheap course's payment can't be replayed against a different courseId.
+        const order = await instance.orders.fetch(razorpay_order_id);
+        if (String(order?.notes?.userId) !== String(userId) || String(order?.notes?.courseId) !== String(courseId)) {
+            return res.status(400).json({ success: false, message: "Order does not match this user or course" });
+        }
+
+        // 3. The payment must belong to that order, have succeeded, and cover the full order amount
+        const payment = await instance.payments.fetch(razorpay_payment_id);
+        if (payment.order_id !== razorpay_order_id
+            || !["authorized", "captured"].includes(payment.status)
+            || payment.amount !== order.amount) {
+            return res.status(400).json({ success: false, message: "Payment not successful" });
+        }
+
+        // Enroll using the course recorded on the order, never the client-supplied value.
+        // Enrollment is idempotent ($addToSet), so replaying a valid request is harmless.
+        await enrollStudent(order.notes.courseId, userId);
+        return res.status(200).json({ success: true, message: "Payment verified and student enrolled" });
     } catch (error) {
-        console.error("Verification Error:", error);
+        console.error("Verification Error:", error.message);
         return res.status(500).json({ success: false, message: "Could not verify payment." });
     }
 }
