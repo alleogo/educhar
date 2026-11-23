@@ -65,8 +65,12 @@ export const api = {
                     : `Server error (${response.status}). Please try again later.`);
             }
 
-            if (!response.ok) {
-                throw new Error(data.message || `Request failed with status ${response.status}`);
+            // Treat explicit `success: false` as a failure even on HTTP 200,
+            // so the UI never shows a success message for a failed operation
+            if (!response.ok || data?.success === false) {
+                const err = new Error(data?.message || `Request failed with status ${response.status}`);
+                err.status = response.status;
+                throw err;
             }
 
             return data;
