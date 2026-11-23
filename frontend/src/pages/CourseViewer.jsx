@@ -172,7 +172,7 @@ export default function CourseViewer() {
   const progressPercentage = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
 
   return (
-    <div className="container mt-4" style={{ flex: 1, display: 'grid', gridTemplateColumns: '320px 1fr', gap: '24px', paddingBottom: '48px' }}>
+    <div className="container mt-4 viewer-layout">
       <aside className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '80vh', overflowY: 'auto' }}>
         <h3 style={{ paddingBottom: '8px', borderBottom: '1px solid var(--border-color)' }}>{course.courseName}</h3>
         {isInstructor && <button className="btn btn-primary btn-sm w-full" onClick={() => setShowSectionModal(true)}>+ Add Section</button>}
