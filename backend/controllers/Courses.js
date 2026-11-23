@@ -7,10 +7,25 @@ const Section = require("../models/Section");
 const SubSection = require("../models/SubSection");
 const CourseProgress = require("../models/CourseProgress");
 const RatingAndReview = require("../models/RatingAndReview");
+const jwt = require("jsonwebtoken");
 require('dotenv').config();
 
 // Fields of an instructor that are safe to expose on public endpoints
 const PUBLIC_USER_FIELDS = "firstName lastName image accountType";
+
+// Optional authentication for public routes: identifies the caller if they sent a valid
+// token, but never rejects the request. Header first, then cookie (same order of trust
+// as an explicit login on this device).
+function getOptionalUser(req) {
+    const header = req.header("Authorization");
+    const token = (header?.startsWith("Bearer ") ? header.slice(7) : null) || req.cookies?.token;
+    if (!token) return null;
+    try {
+        return jwt.verify(token, process.env.JWT_SECRET);
+    } catch {
+        return null;   // invalid/expired token -> treat as anonymous
+    }
+}
 
 // createCourse handler function
 exports.createCourse = async (req, res) => {
@@ -187,6 +202,26 @@ exports.getCourseDetails = async (req, res) => {
             courseObj.averageRating = 0;
         }
         courseObj.ratingCount = reviews.length;
+
+        // Paid content: lesson video URLs are only sent to the course's instructor
+        // and to enrolled students. Everyone else still sees the syllabus (titles, durations).
+        const caller = getOptionalUser(req);
+        const callerId = caller?.id ? String(caller.id) : null;
+        const isOwner = !!callerId && String(courseObj.instructor?._id) === callerId;
+        const isEnrolled = !!callerId && (courseObj.enrolledStudents || []).some(id => String(id) === callerId);
+
+        if (!isOwner && !isEnrolled) {
+            courseObj.courseContent = (courseObj.courseContent || []).map(section => ({
+                ...section,
+                subSection: (section.subSection || []).map(({ videoUrl, ...lesson }) => lesson)
+            }));
+        }
+
+        // Publish a count, not the list of student IDs
+        courseObj.enrolledCount = (courseObj.enrolledStudents || []).length;
+        delete courseObj.enrolledStudents;
+        courseObj.isEnrolled = isEnrolled;
+        courseObj.canAccessContent = isOwner || isEnrolled;
 
         // return response
         return res.status(200).json({
