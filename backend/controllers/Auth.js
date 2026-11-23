@@ -173,6 +173,9 @@ exports.signUp = async (req, res) => {
         // Delete used OTPs for this email
         await OTP.deleteMany({ email: normalizedEmail });
 
+        // never send the password hash back to the client
+        user.password = undefined;
+
         // return response 
         return res.status(200).json({
             success: true,
@@ -205,7 +208,7 @@ exports.logIn = async (req, res) => {
         }
 
         // check user exists or not
-        const user = await User.findOne({email}).populate("additionalDetails");
+        const user = await User.findOne({email: email.trim().toLowerCase()}).select("+password").populate("additionalDetails");
         if(!user){
             return res.status(401).json({
                 success: false,
@@ -276,7 +279,7 @@ exports.changePassword = async (req, res) => {
         }
 
         // get user details from auth middleware
-        const userDetails = await User.findById(req.user.id);
+        const userDetails = await User.findById(req.user.id).select("+password");
 
         // check old password
         const isPasswordMatch = await bcrypt.compare(

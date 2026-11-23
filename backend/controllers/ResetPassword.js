@@ -67,7 +67,7 @@ exports.resetPassword = async (req, res) => {
         }
 
         // get user details from DB using token
-        const userDetails = await User.findOne({token: token});
+        const userDetails = await User.findOne({token: token}).select("+resetPasswordExpires");
 
         // if no entry present -> invalid token
         if(!userDetails){

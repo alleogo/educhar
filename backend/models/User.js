@@ -18,6 +18,7 @@ const userSchema = new mongoose.Schema({
     password:{
         type:String,
         required:true,
+        select: false      // never returned unless explicitly requested with .select("+password")
     },
     accountType:{
         type: String,
@@ -38,10 +39,12 @@ const userSchema = new mongoose.Schema({
         required: true
     },
     token:{
-        type: String
+        type: String,
+        select: false      // password-reset token: must never leave the server
     },
     resetPasswordExpires:{
-        type: Date
+        type: Date,
+        select: false
     },
     courseProgress:[{
         type: mongoose.Schema.ObjectId,

@@ -9,6 +9,9 @@ const CourseProgress = require("../models/CourseProgress");
 const RatingAndReview = require("../models/RatingAndReview");
 require('dotenv').config();
 
+// Fields of an instructor that are safe to expose on public endpoints
+const PUBLIC_USER_FIELDS = "firstName lastName image accountType";
+
 // createCourse handler function
 exports.createCourse = async (req, res) => {
     try {
@@ -30,8 +33,6 @@ exports.createCourse = async (req, res) => {
         const userId = req.user.id;
         const instructorDetails = await User.findById(userId);
         //***   instructor ki userId vs objectId: isko dekhna hai ***
-
-        console.log("Instructor details: ", instructorDetails);
 
         if (!instructorDetails) {
             return res.status(404).json({
@@ -102,7 +103,7 @@ exports.createCourse = async (req, res) => {
 exports.showAllCourses = async (req, res) => {
     try {
         const allCourses = await Course.find({})
-            .populate("instructor")
+            .populate("instructor", PUBLIC_USER_FIELDS)
             .populate("ratingAndReviews")
             .exec();
 
@@ -146,8 +147,10 @@ exports.getCourseDetails = async (req, res) => {
         const courseDetails = await Course.findById(courseId)
             .populate({
                 path: "instructor",
+                select: `${PUBLIC_USER_FIELDS} additionalDetails`,   // needed for the nested "about" populate
                 populate: {
-                    path: "additionalDetails"
+                    path: "additionalDetails",
+                    select: "about"
                 }
             })
             .populate("category")
