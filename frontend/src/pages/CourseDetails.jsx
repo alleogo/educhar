@@ -43,14 +43,8 @@ export default function CourseDetails() {
     try {
       const resp = await api.getCourseDetails(courseId);
       setCourse(resp.data);
-
-      if (user?.accountType === 'Student') {
-        try {
-          const enrolledResp = await api.getEnrolledCourses();
-          const enrolled = enrolledResp.enrolledCourses || [];
-          setIsEnrolled(enrolled.some(c => c._id === courseId));
-        } catch (e) { console.log('Could not fetch enrollment status'); }
-      }
+      // The server computes enrollment from the auth token, so this stays correct after a page refresh
+      setIsEnrolled(!!resp.data?.isEnrolled);
     } catch (e) {
       toast.error('Failed to load course details.');
     }
@@ -140,7 +134,7 @@ export default function CourseDetails() {
             <span className="details-rating-value">{avgRating > 0 ? avgRating.toFixed(1) : 'No ratings yet'}</span>
             <span className="details-rating-count">({ratingCount}{ratingCount === 1 ? ' review' : ' reviews'})</span>
             <span className="details-rating-separator">•</span>
-            <span className="details-enrolled-count">{(course.enrolledStudents || []).length} student{(course.enrolledStudents || []).length !== 1 ? 's' : ''} enrolled</span>
+            <span className="details-enrolled-count">{course.enrolledCount || 0} student{(course.enrolledCount || 0) !== 1 ? 's' : ''} enrolled</span>
           </div>
         </div>
       </div>

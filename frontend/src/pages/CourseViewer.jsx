@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
 
 export default function CourseViewer() {
   const { id: courseId } = useParams();
+  const navigate = useNavigate();
   const { user } = useAppContext();
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -35,7 +36,7 @@ export default function CourseViewer() {
       const resp = await api.getCourseDetails(courseId);
       setCourse(resp.data);
 
-      if (user?.accountType === 'Student') {
+      if (user?.accountType === 'Student' && resp.data?.isEnrolled) {
         const progResp = await api.getCourseProgress(courseId);
         setCompletedVideos(progResp.data?.completedVideos || []);
       }
@@ -149,6 +150,19 @@ export default function CourseViewer() {
 
   if (loading) return <div className="view-loading"><div className="spinner"></div></div>;
   if (!course) return <div className="container mt-4 glass-panel text-center"><p className="text-danger">Course not found.</p></div>;
+
+  // Lesson videos are only served to the instructor and enrolled students
+  if (!course.canAccessContent) {
+    return (
+      <div className="container mt-4 glass-panel text-center" style={{ maxWidth: '520px', padding: '32px' }}>
+        <h3>This course is locked</h3>
+        <p style={{ color: 'var(--text-secondary)', margin: '12px 0 20px' }}>
+          {user ? 'Enroll in this course to watch its lessons.' : 'Log in and enroll to watch this course.'}
+        </p>
+        <button className="btn btn-primary" onClick={() => navigate(`/course-details/${courseId}`)}>View Course Details</button>
+      </div>
+    );
+  }
 
   let totalLessons = 0;
   (course.courseContent || []).forEach(sec => totalLessons += (sec.subSection || []).length);
