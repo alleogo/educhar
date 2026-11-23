@@ -4,7 +4,10 @@ import { api } from '../services/api';
 const AppContext = createContext();
 
 export function AppProvider({ children }) {
-  const [user, setUser] = useState(null);
+  // Restore the session synchronously on the first render. If this were done in a useEffect,
+  // page effects (which run BEFORE parent effects) would see user === null on a refresh and
+  // redirect to /login, or skip loading enrollment/progress.
+  const [user, setUser] = useState(() => api.getCurrentUser());
   const [categories, setCategories] = useState([]);
   const [courses, setCourses] = useState([]);
   const [enrolledCourses, setEnrolledCourses] = useState([]);
@@ -16,10 +19,6 @@ export function AppProvider({ children }) {
   const [selectedRatingValue, setSelectedRatingValue] = useState(5);
 
   useEffect(() => {
-    const savedUser = api.getCurrentUser();
-    if (savedUser) {
-      setUser(savedUser);
-    }
     async function loadCommonData() {
       try {
         const catData = await api.getAllCategories();
