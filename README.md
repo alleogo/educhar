@@ -48,33 +48,29 @@ cd backend
 npm install
 ```
 
-Create a `.env` file in the `backend` directory (refer to `.env.example` if available):
-```env
-PORT=4000
-MONGODB_URL=your_mongodb_url
-JWT_SECRET=your_jwt_secret
-FOLDER_NAME=your_cloudinary_folder
-
-# Cloudinary
-CLOUD_NAME=your_cloud_name
-API_KEY=your_api_key
-API_SECRET=your_api_secret
-
-# Razorpay
-RAZORPAY_KEY=your_razorpay_key
-RAZORPAY_SECRET=your_razorpay_secret
-
-# Nodemailer
-MAIL_HOST=smtp.gmail.com
-MAIL_USER=your_email@gmail.com
-MAIL_PASS=your_app_password
+Create a `.env` file in the `backend` directory by copying the root `.env.example` and filling in the values:
+```bash
+cp ../.env.example .env
 ```
+
+| Variable | Purpose |
+|---|---|
+| `PORT` | Backend port (the frontend dev server expects `8080`) |
+| `NODE_ENV` | `production` on Vercel (secure cookies, strict CORS) |
+| `FRONTEND_URL` | Frontend origin for reset-password links and CORS, e.g. `http://localhost:3000` |
+| `MONGODB_URL` | MongoDB connection string |
+| `JWT_SECRET` | Secret for signing login tokens |
+| `ADMIN_SECRET` | Code required to register an Admin account |
+| `MAIL_HOST`, `MAIL_USER`, `MAIL_PASS` | SMTP credentials (port 587), e.g. Gmail with an app password |
+| `CLOUDINARY_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`, `FOLDER_NAME` | Cloudinary account and upload folder |
+| `RAZORPAY_KEY`, `RAZORPAY_SECRET` | Razorpay API keys (use test keys locally) |
+| `RAZORPAY_WEBHOOK_SECRET` | Secret of the Razorpay webhook pointing at `/api/v1/payment/verifysignature` |
 
 Start the backend server:
 ```bash
 npm run dev
 ```
-*(Runs on http://localhost:4000)*
+*(Runs on http://localhost:8080)*
 
 ### 3. Frontend Setup
 Open a new terminal window:
@@ -87,7 +83,11 @@ Start the Vite development server:
 ```bash
 npm run dev
 ```
-*(Runs on http://localhost:5173 by default)*
+*(Runs on http://localhost:3000)*
+
+## Deployment (Vercel)
+
+The Vercel project's root directory is `frontend/`. `frontend/vercel.json` builds the Vite app, serves the Express backend as a serverless function from `frontend/api/index.js` under `/api/*`, and falls back to `index.html` for client-side routes. Set every variable above in Vercel → Settings → Environment Variables (with `NODE_ENV=production` and `FRONTEND_URL=https://educhar.vercel.app`).
 
 ## License
 This project is licensed under the ISC License.

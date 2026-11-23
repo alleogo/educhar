@@ -14,16 +14,17 @@ const mailSender = async (email, title, body) => {
         });
 
         let info = await transporter.sendMail({
-            from: "EduChar || KC",
+            // must be a real address; most SMTP providers reject or rewrite a bare name
+            from: `"EduChar" <${process.env.MAIL_USER}>`,
             to: `${email}`,
             subject: `${title}`,
             html: `${body}`
         });
-        console.log(info);
+        console.log("Email sent:", info.messageId);
         return info;
     }
     catch(error){
-        console.error(error.message);
+        console.error("Email send failed:", error.message);
         throw error;
     }
 }
