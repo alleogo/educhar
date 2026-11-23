@@ -145,7 +145,7 @@ exports.updateCategory = async (req, res) => {
         const category = await Category.findByIdAndUpdate(
             categoryId,
             { name, description },
-            { new: true }
+            { returnDocument: 'after' }
         );
 
         if (!category) {

@@ -303,7 +303,7 @@ exports.changePassword = async (req, res) => {
         const updatedUserDetails = await User.findByIdAndUpdate(
             req.user.id,
             {password: encryptedPassword},
-            {new: true}
+            { returnDocument: 'after' }
         );
 
         // send mail

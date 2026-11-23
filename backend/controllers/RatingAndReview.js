@@ -60,7 +60,7 @@ exports.createRating = async (req, res) => {
                                             ratingAndReviews: ratingReviewId
                                         }
                                        },
-                                       {new: true} );
+                                       { returnDocument: 'after' } );
 
         // return response
         return res.status(200).json({

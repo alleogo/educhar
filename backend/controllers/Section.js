@@ -31,7 +31,7 @@ exports.createSection = async (req, res) => {
                     courseContent: newSection._id
                 }
             },
-            { new: true }
+            { returnDocument: 'after' }
         ).populate({
             path: 'courseContent',
             populate: {
@@ -74,7 +74,7 @@ exports.updateSection = async (req, res) => {
         if (!(await findOwnedCourse({ courseContent: sectionId }, req.user.id, res))) return;
 
         // update section
-        const section = await Section.findByIdAndUpdate(sectionId, { sectionName }, { new: true });
+        const section = await Section.findByIdAndUpdate(sectionId, { sectionName }, { returnDocument: 'after' });
 
         // return response
         return res.status(200).json({

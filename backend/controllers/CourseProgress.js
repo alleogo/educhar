@@ -69,7 +69,7 @@ exports.updateCourseProgress = async (req, res) => {
             progressDoc = await CourseProgress.findByIdAndUpdate(
                 progressDoc._id,
                 { $addToSet: { completedVideos: subSectionId } },
-                { new: true }
+                { returnDocument: 'after' }
             );
         }
 
@@ -104,7 +104,7 @@ exports.unmarkCourseProgress = async (req, res) => {
         const updatedProgress = await CourseProgress.findByIdAndUpdate(
             progressDoc._id,
             { $pull: { completedVideos: subSectionId } },
-            { new: true }
+            { returnDocument: 'after' }
         );
 
         return res.status(200).json({

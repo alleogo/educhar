@@ -49,7 +49,7 @@ exports.createSubsection = async (req, res) => {
                     subSection: subSectionDetails._id
                 }
             },
-            { new: true }
+            { returnDocument: 'after' }
         ).populate("subSection");
         // TODO: log updated section here, after adding populate query
 
@@ -203,7 +203,7 @@ exports.deleteSubSection = async (req, res) => {
                         subSectionId
                 }
             },
-            { new: true }
+            { returnDocument: 'after' }
         );
 
         // delete subsection

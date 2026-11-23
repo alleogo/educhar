@@ -210,7 +210,7 @@ const enrollStudent = async (courseId, userId) => {
 
     const enrolledCourse = await Course.findByIdAndUpdate(courseId,
         { $addToSet: { enrolledStudents: userId } },
-        { new: true }
+        { returnDocument: 'after' }
     );
     if (!enrolledCourse) {
         throw new Error("Course not found");
@@ -218,7 +218,7 @@ const enrollStudent = async (courseId, userId) => {
 
     const enrolledStudent = await User.findByIdAndUpdate(userId,
         { $addToSet: { courses: courseId } },
-        { new: true }
+        { returnDocument: 'after' }
     );
     if (!enrolledStudent) {
         throw new Error("Student not found");

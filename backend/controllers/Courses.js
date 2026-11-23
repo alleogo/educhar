@@ -107,14 +107,14 @@ exports.createCourse = async (req, res) => {
         await User.findByIdAndUpdate(
             { _id: instructorDetails._id },
             { $push: { courses: newCourse._id } },
-            { new: true }
+            { returnDocument: 'after' }
         );
 
         // update Category
         await Category.findByIdAndUpdate(
             { _id: category },
             { $push: { course: newCourse._id } },
-            { new: true }
+            { returnDocument: 'after' }
         );
 
         // return response
