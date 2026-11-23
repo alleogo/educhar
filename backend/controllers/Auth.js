@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const mailSender = require('../utils/mailSender');
+const { authCookieOptions } = require('../middlewares/auth');
 const otpTemplate = require('../mail/templates/emailVerificationTemplate');
 
 require('dotenv').config();
@@ -176,7 +177,7 @@ exports.signUp = async (req, res) => {
         });  
     }
     catch(error){
-        console.log(error);
+        console.error(error.message);
         return res.status(500).json({
             success: false,
             message: "User cannot be registered. Please try again."
@@ -223,8 +224,8 @@ exports.logIn = async (req, res) => {
 
             // create cookie and send response
             const options = {
-                expires: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours
-                httpOnly: true
+                ...authCookieOptions(),
+                expires: new Date(Date.now() + 2 * 60 * 60 * 1000) // 2 hours, same as the JWT
             }
             res.cookie("token", token, options).status(200).json({  // res.cookie("cookieName, cookie, options")
                 success: true,
@@ -241,12 +242,21 @@ exports.logIn = async (req, res) => {
         }
     }
     catch(error){
-        console.log(error);
+        console.error(error.message);
         return res.status(500).json({
             success: false,
             message: "Login Failure. Pleae try again."
         }); 
     }
+}
+
+// logOut: clears the httpOnly auth cookie (JavaScript can't remove it itself)
+exports.logOut = async (req, res) => {
+    res.clearCookie("token", authCookieOptions());
+    return res.status(200).json({
+        success: true,
+        message: "Logged out successfully."
+    });
 }
 
 // changePassword
@@ -305,7 +315,7 @@ exports.changePassword = async (req, res) => {
             );
         }
         catch(error){
-            console.log("Error occurred while sending email:", error);
+            console.error("Password-change email failed:", error.message);
         }
 
         // return response
@@ -316,7 +326,7 @@ exports.changePassword = async (req, res) => {
 
     }
     catch(error){
-        console.log(error);
+        console.error(error.message);
 
         return res.status(500).json({
             success: false,
