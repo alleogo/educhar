@@ -2,6 +2,7 @@ const Course = require("../models/Course");
 const Section = require("../models/Section");
 const SubSection = require("../models/SubSection");
 const uploadImageToCloudinary = require("../utils/cloudinaryUploader");
+const { findOwnedCourse, validIds } = require("../utils/courseOwnership");
 require("dotenv").config();
 
 // createSubSection
@@ -33,6 +34,11 @@ exports.createSubsection = async (req, res) => {
                 // }
             });
         }
+
+        if (!validIds(res, sectionId)) return;
+
+        // the section must belong to a course owned by this instructor (checked BEFORE uploading)
+        if (!(await findOwnedCourse({ courseContent: sectionId }, req.user.id, res))) return;
 
         // upload file/video to cloudinary
         const uploadDetails = await uploadImageToCloudinary(video, process.env.FOLDER_NAME);
@@ -95,6 +101,18 @@ exports.updateSubSection = async (req, res) => {
                 message: "SubSection ID is required."
             });
         }
+
+        if (!validIds(res, subSectionId)) return;
+
+        // subsection -> its section -> its course, which this instructor must own
+        const parentSection = await Section.findOne({ subSection: subSectionId }).select("_id");
+        if (!parentSection) {
+            return res.status(404).json({
+                success: false,
+                message: "SubSection not found."
+            });
+        }
+        if (!(await findOwnedCourse({ courseContent: parentSection._id }, req.user.id, res))) return;
 
         // get existing subsection
         const subSection =
@@ -172,6 +190,18 @@ exports.deleteSubSection = async (req, res) => {
                     "Missing properties."
             });
         }
+
+        if (!validIds(res, sectionId, subSectionId)) return;
+
+        // the subsection must really be in this section, and the section in a course this instructor owns
+        const parentSection = await Section.findOne({ _id: sectionId, subSection: subSectionId }).select("_id");
+        if (!parentSection) {
+            return res.status(404).json({
+                success: false,
+                message: "SubSection not found in this section."
+            });
+        }
+        if (!(await findOwnedCourse({ courseContent: sectionId }, req.user.id, res))) return;
 
         // remove subsection id
         // from section

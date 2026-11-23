@@ -1,6 +1,7 @@
 const Section = require("../models/Section");
 const Course = require("../models/Course");
 const SubSection = require("../models/SubSection");
+const { findOwnedCourse, validIds } = require("../utils/courseOwnership");
 
 // createSection handler
 exports.createSection = async (req, res) => {
@@ -14,6 +15,10 @@ exports.createSection = async (req, res) => {
                 message: "Missing Properties"
             });
         }
+        if (!validIds(res, courseId)) return;
+
+        // only the course's instructor may add sections (also rejects non-existent courses)
+        if (!(await findOwnedCourse({ _id: courseId }, req.user.id, res))) return;
 
         // create Section
         const newSection = await Section.create({ sectionName });
@@ -63,6 +68,10 @@ exports.updateSection = async (req, res) => {
                 message: "Missing Properties"
             });
         }
+        if (!validIds(res, sectionId)) return;
+
+        // the section must belong to a course owned by this instructor
+        if (!(await findOwnedCourse({ courseContent: sectionId }, req.user.id, res))) return;
 
         // update section
         const section = await Section.findByIdAndUpdate(sectionId, { sectionName }, { new: true });
@@ -93,6 +102,11 @@ exports.deleteSection = async (req, res) => {
                 message: "Section ID is required.",
             });
         }
+
+        if (!validIds(res, sectionId)) return;
+
+        // the section must belong to a course owned by this instructor
+        if (!(await findOwnedCourse({ courseContent: sectionId }, req.user.id, res))) return;
 
         // Find the section first
         const section = await Section.findById(sectionId);
