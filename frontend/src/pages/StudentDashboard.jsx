@@ -17,7 +17,10 @@ function EnrolledCourseCard({ course }) {
       api.getCourseProgress(course._id)
         .then(resp => {
           if (resp.data?.completedVideos) {
-            setProgress(Math.round((resp.data.completedVideos.length / total) * 100));
+            // Only count lessons that still exist in the course
+            const lessonIds = new Set((course.courseContent || []).flatMap(sec => (sec.subSection || []).map(l => l._id)));
+            const done = resp.data.completedVideos.filter(id => lessonIds.has(id)).length;
+            setProgress(Math.round((done / total) * 100));
           }
         })
         .catch(console.warn);

@@ -166,7 +166,10 @@ export default function CourseViewer() {
 
   let totalLessons = 0;
   (course.courseContent || []).forEach(sec => totalLessons += (sec.subSection || []).length);
-  const progressPercentage = totalLessons > 0 ? Math.round((completedVideos.length / totalLessons) * 100) : 0;
+  // Only count lessons that still exist (a deleted lesson may remain in completedVideos)
+  const lessonIds = new Set((course.courseContent || []).flatMap(sec => (sec.subSection || []).map(l => l._id)));
+  const completedCount = completedVideos.filter(id => lessonIds.has(id)).length;
+  const progressPercentage = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
 
   return (
     <div className="container mt-4" style={{ flex: 1, display: 'grid', gridTemplateColumns: '320px 1fr', gap: '24px', paddingBottom: '48px' }}>
@@ -183,7 +186,7 @@ export default function CourseViewer() {
             <div style={{ width: '100%', height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
               <div style={{ height: '100%', width: `${progressPercentage}%`, background: 'var(--color-success)', transition: 'width 0.3s ease' }}></div>
             </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px', textAlign: 'right' }}>{completedVideos.length} / {totalLessons} completed</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px', textAlign: 'right' }}>{completedCount} / {totalLessons} completed</div>
           </div>
         )}
 
