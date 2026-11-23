@@ -191,12 +191,14 @@ export default function CourseDetails() {
                   const revUser = rev.user || { firstName: 'Anonymous', lastName: '' };
                   const reviewUserId = typeof revUser === 'object' ? revUser._id : revUser;
                   const isOwner = user?._id && reviewUserId && user._id === reviewUserId;
+                  // Clamp so a bad stored value can never crash the page (repeat() throws on negatives)
+                  const stars = Math.max(0, Math.min(5, Math.round(Number(rev.rating) || 0)));
                   return (
                     <div className="glass-panel mb-4" style={{ padding: '16px' }} key={rev._id}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                         <span style={{ fontWeight: 600 }}>{revUser.firstName} {revUser.lastName || ''}</span>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <span style={{ color: 'var(--color-warning)', fontSize: '1.1rem' }}>{'★'.repeat(rev.rating)}{'☆'.repeat(5 - rev.rating)}</span>
+                          <span style={{ color: 'var(--color-warning)', fontSize: '1.1rem' }}>{'★'.repeat(stars)}{'☆'.repeat(5 - stars)}</span>
                           {isOwner && <button className="btn btn-danger btn-sm" onClick={() => handleReviewDelete(rev._id)} style={{ padding: '4px 10px', fontSize: '0.75rem' }}>Delete</button>}
                         </div>
                       </div>

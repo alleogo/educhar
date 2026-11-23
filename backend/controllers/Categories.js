@@ -1,5 +1,6 @@
 const Category = require("../models/Category");
 const Course = require("../models/Course");
+const mongoose = require("mongoose");
 
 // Fields of an instructor that are safe to expose on public endpoints
 const PUBLIC_USER_FIELDS = "firstName lastName image accountType";
@@ -23,7 +24,6 @@ exports.createCategory = async (req, res) => {
             name: name,
             description: description
         });
-        console.log("Category Details: ", categoryDetails);
 
         //return response
         return res.status(200).json({
@@ -34,7 +34,7 @@ exports.createCategory = async (req, res) => {
     catch (error) {
         return res.status(500).json({
             success: false,
-            message: error.message
+            message: "Something went wrong. Please try again."
         });
     }
 }
@@ -52,7 +52,7 @@ exports.showAllCategories = async (req, res) => {
     catch (error) {
         return res.status(500).json({
             success: false,
-            message: error.message
+            message: "Something went wrong. Please try again."
         });
     }
 }
@@ -63,6 +63,9 @@ exports.categoryPageDetails = async (req, res) => {
     try {
         // get category ID
         const categoryId = req.body?.categoryId || req.query?.categoryId;
+        if (!mongoose.isValidObjectId(categoryId)) {
+            return res.status(400).json({ success: false, message: "Invalid category id." });
+        }
 
         // get courses for specified category ID
         const selectedCategory = await Category.findById(categoryId)
@@ -92,12 +95,22 @@ exports.categoryPageDetails = async (req, res) => {
                 }
             }).exec();
 
-        // get top selling courses
-        const topSellingCourses = await Course.find({})
-            .sort({ enrolledStudents: -1 })
-            .limit(10)
-            .populate("instructor", PUBLIC_USER_FIELDS)
-            .exec();
+        // get top selling courses, ranked by NUMBER of enrolled students.
+        // (.sort({ enrolledStudents: -1 }) sorted by the array's element values, not its length)
+        const topSellingCourses = await Course.aggregate([
+            { $addFields: { enrolledCount: { $size: { $ifNull: ["$enrolledStudents", []] } } } },
+            { $sort: { enrolledCount: -1, _id: 1 } },
+            { $limit: 10 },
+            { $lookup: {
+                from: "users",
+                localField: "instructor",
+                foreignField: "_id",
+                as: "instructor",
+                pipeline: [{ $project: { firstName: 1, lastName: 1, image: 1, accountType: 1 } }]
+            } },
+            { $unwind: { path: "$instructor", preserveNullAndEmptyArrays: true } },
+            { $project: { enrolledStudents: 0 } }   // publish the count, not student IDs
+        ]);
 
         // return response
         return res.status(200).json({
@@ -110,10 +123,10 @@ exports.categoryPageDetails = async (req, res) => {
         });
     }
     catch (error) {
-        console.log(error);
+        console.error("category error:", error.message);
         return res.status(500).json({
             success: false,
-            message: error.message
+            message: "Something went wrong. Please try again."
         });
     }
 }
@@ -122,8 +135,11 @@ exports.categoryPageDetails = async (req, res) => {
 exports.updateCategory = async (req, res) => {
     try {
         const { categoryId, name, description } = req.body;
-        if (!categoryId) {
-            return res.status(400).json({ success: false, message: "Category ID is required" });
+        if (!mongoose.isValidObjectId(categoryId)) {
+            return res.status(400).json({ success: false, message: "Valid category ID is required" });
+        }
+        if (!name?.trim() || !description?.trim()) {
+            return res.status(400).json({ success: false, message: "Name and description are required" });
         }
 
         const category = await Category.findByIdAndUpdate(
@@ -142,7 +158,7 @@ exports.updateCategory = async (req, res) => {
             category
         });
     } catch (error) {
-        return res.status(500).json({ success: false, message: error.message });
+        return res.status(500).json({ success: false, message: "Something went wrong. Please try again." });
     }
 };
 
@@ -150,8 +166,8 @@ exports.updateCategory = async (req, res) => {
 exports.deleteCategory = async (req, res) => {
     try {
         const { categoryId } = req.params;
-        if (!categoryId) {
-            return res.status(400).json({ success: false, message: "Category ID is required" });
+        if (!mongoose.isValidObjectId(categoryId)) {
+            return res.status(400).json({ success: false, message: "Valid category ID is required" });
         }
 
         const categoryToDelete = await Category.findById(categoryId);
@@ -185,7 +201,7 @@ exports.deleteCategory = async (req, res) => {
 
             // 2. Add these courses to the default category's course array
             await Category.findByIdAndUpdate(defaultCategory._id, {
-                $push: { course: { $each: courseIds } }
+                $addToSet: { course: { $each: courseIds } }
             });
         }
 
@@ -197,6 +213,6 @@ exports.deleteCategory = async (req, res) => {
             message: "Category deleted successfully and courses were reassigned to 'Uncategorized'."
         });
     } catch (error) {
-        return res.status(500).json({ success: false, message: error.message });
+        return res.status(500).json({ success: false, message: "Something went wrong. Please try again." });
     }
 };
