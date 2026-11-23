@@ -55,7 +55,15 @@ export const api = {
 
         try {
             const response = await fetch(url, config);
-            const data = await response.json();
+            const text = await response.text();
+            let data;
+            try {
+                data = text ? JSON.parse(text) : {};
+            } catch {
+                throw new Error(response.ok
+                    ? "Received an invalid response from the server."
+                    : `Server error (${response.status}). Please try again later.`);
+            }
 
             if (!response.ok) {
                 throw new Error(data.message || `Request failed with status ${response.status}`);

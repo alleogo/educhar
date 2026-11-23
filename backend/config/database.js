@@ -8,8 +8,9 @@ exports.connect = () => {
     })
     .then( () => console.log("DB connected successfully!"))
     .catch((error) => {
-        console.log("DB connection failed."),
-        console.error(error),
-        process.exit(1)
+        console.log("DB connection failed.");
+        console.error(error);
+        // Don't kill the serverless runtime; only exit when running as a standalone server
+        if (!process.env.VERCEL) process.exit(1)
     })
 };

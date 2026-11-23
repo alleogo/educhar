@@ -38,9 +38,12 @@ app.get("/", (req, res) => {
     res.send("<h1>EduChar API is running...</h1>");
 });
 
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+// On Vercel the app is exported as a serverless handler (see /api/index.js)
+if (require.main === module) {
+    const PORT = process.env.PORT || 8080;
+    app.listen(PORT, () => {
+        console.log(`Server running on port ${PORT}`);
+    });
+}
 
 module.exports = app;
