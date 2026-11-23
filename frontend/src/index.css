@@ -1220,3 +1220,20 @@ h3 { font-size: 1.4rem; margin-bottom: 0.75rem; }
         justify-content: center;
     }
 }
+
+/* Course viewer: sidebar + player side by side on desktop, stacked on phones/tablets */
+.viewer-layout {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: 24px;
+  padding-bottom: 48px;
+}
+@media (max-width: 768px) {
+  .viewer-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .viewer-layout > aside {
+    max-height: 45vh !important;
+  }
+}

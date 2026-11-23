@@ -1,10 +1,11 @@
 const User = require('../models/User');
 const Profile = require('../models/Profile');
 const OTP = require('../models/OTP');
-const otpGenerator = require('otp-generator');
+const crypto = require('crypto');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const mailSender = require('../utils/mailSender');
+const { authCookieOptions } = require('../middlewares/auth');
 const otpTemplate = require('../mail/templates/emailVerificationTemplate');
 
 require('dotenv').config();
@@ -24,54 +25,40 @@ exports.sendOTP = async (req, res) => {
         const checkUserExistence = await User.findOne({email});
         // if user already exists
         if(checkUserExistence){
-            return res.status(401).json({
+            return res.status(409).json({
                 success: false,
                 message: "User already exists!"
             });
         }
 
-        // generate OTP
-        let otp = otpGenerator.generate(6, {
-            upperCaseAlphabets: false,
-            lowerCaseAlphabets: false,
-            specialChars: false
-        });
-        console.log("OTP generated: ", otp);
-        
-        // check unique otp or not
-        let result = await OTP.findOne({otp: otp}); // OR: let result = await OTP.findOne({otp});
+        // Cryptographically secure 6-digit code. Global uniqueness isn't needed:
+        // an OTP is always looked up together with its email.
+        const otp = crypto.randomInt(0, 1000000).toString().padStart(6, "0");
 
-        // generate otp until unique otp is obtained. bekar code hai, ese nhi krte hai, kuchh services use krte h jo hmesha unique otp dete h 
-        while(result){
-            otp = otpGenerator.generate(6, {
-                upperCaseAlphabets: false,
-                lowerCaseAlphabets: false,
-                specialChars: false
-            });
-            result = await OTP.findOne({otp: otp});
+        // Only the newest code for this email should be valid
+        await OTP.deleteMany({ email });
+        await OTP.create({ email, otp });
+
+        // send verification email; if it fails, don't leave an unusable code behind
+        try {
+            await mailSender(email, "Verification Email from EduChar", otpTemplate(otp));
+        } catch (mailError) {
+            await OTP.deleteMany({ email });
+            throw mailError;
         }
 
-        // create DB entry of OTP
-        const otpPayload = {email, otp};
-        const otpBody = await OTP.create(otpPayload);   // const optBody = await OTP.create({email, otp});
-        console.log("OTP Body: ", otpBody);
-
-        // send verification email
-        await mailSender(email, "Verification Email from EduChar", otpTemplate(otp));
-
-        // return successful response
+        // The OTP is NEVER returned to the client: it must only be readable from the user's inbox
         return res.status(200).json({
             success: true,
-            message: "OTP sent successfully",
-            otp 
+            message: "OTP sent successfully"
         });
 
     }
     catch(error){
-        console.log(error);
+        console.error("sendOTP error:", error.message);
         return res.status(500).json({
             success: false,
-            message: error.message
+            message: "Could not send OTP. Please try again."
         })
     }
 }
@@ -133,7 +120,6 @@ exports.signUp = async (req, res) => {
         // find most recent OTP in DB
         const recentOtpArray = await OTP.find({email: normalizedEmail}).sort({createdAt:-1}).limit(1);
         const recentOtp = recentOtpArray.length > 0 ? recentOtpArray[0] : null;
-        console.log(recentOtp);   
 
         // validate OTP
         if(!recentOtp){
@@ -150,6 +136,13 @@ exports.signUp = async (req, res) => {
                 message: "OTP is not matching."
             });
         } 
+        // MongoDB's TTL cleanup runs only every ~60s, so enforce the 5-minute expiry here too
+        else if(Date.now() - new Date(recentOtp.createdAt).getTime() > 5 * 60 * 1000){
+            return res.status(400).json({
+                success: false,
+                message: "OTP expired. Please request a new one."
+            });
+        }
 
         // hash password
         const hashedPassword = await bcrypt.hash(password, 10);
@@ -184,7 +177,7 @@ exports.signUp = async (req, res) => {
         });  
     }
     catch(error){
-        console.log(error);
+        console.error(error.message);
         return res.status(500).json({
             success: false,
             message: "User cannot be registered. Please try again."
@@ -231,8 +224,8 @@ exports.logIn = async (req, res) => {
 
             // create cookie and send response
             const options = {
-                expires: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours
-                httpOnly: true
+                ...authCookieOptions(),
+                expires: new Date(Date.now() + 2 * 60 * 60 * 1000) // 2 hours, same as the JWT
             }
             res.cookie("token", token, options).status(200).json({  // res.cookie("cookieName, cookie, options")
                 success: true,
@@ -249,12 +242,21 @@ exports.logIn = async (req, res) => {
         }
     }
     catch(error){
-        console.log(error);
+        console.error(error.message);
         return res.status(500).json({
             success: false,
             message: "Login Failure. Pleae try again."
         }); 
     }
+}
+
+// logOut: clears the httpOnly auth cookie (JavaScript can't remove it itself)
+exports.logOut = async (req, res) => {
+    res.clearCookie("token", authCookieOptions());
+    return res.status(200).json({
+        success: true,
+        message: "Logged out successfully."
+    });
 }
 
 // changePassword
@@ -301,7 +303,7 @@ exports.changePassword = async (req, res) => {
         const updatedUserDetails = await User.findByIdAndUpdate(
             req.user.id,
             {password: encryptedPassword},
-            {new: true}
+            { returnDocument: 'after' }
         );
 
         // send mail
@@ -313,7 +315,7 @@ exports.changePassword = async (req, res) => {
             );
         }
         catch(error){
-            console.log("Error occurred while sending email:", error);
+            console.error("Password-change email failed:", error.message);
         }
 
         // return response
@@ -324,7 +326,7 @@ exports.changePassword = async (req, res) => {
 
     }
     catch(error){
-        console.log(error);
+        console.error(error.message);
 
         return res.status(500).json({
             success: false,

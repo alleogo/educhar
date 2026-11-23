@@ -1,6 +1,8 @@
 const Section = require("../models/Section");
 const Course = require("../models/Course");
 const SubSection = require("../models/SubSection");
+const { findOwnedCourse, validIds } = require("../utils/courseOwnership");
+const { deleteFromCloudinary } = require("../utils/cloudinaryUploader");
 
 // createSection handler
 exports.createSection = async (req, res) => {
@@ -14,6 +16,10 @@ exports.createSection = async (req, res) => {
                 message: "Missing Properties"
             });
         }
+        if (!validIds(res, courseId)) return;
+
+        // only the course's instructor may add sections (also rejects non-existent courses)
+        if (!(await findOwnedCourse({ _id: courseId }, req.user.id, res))) return;
 
         // create Section
         const newSection = await Section.create({ sectionName });
@@ -25,7 +31,7 @@ exports.createSection = async (req, res) => {
                     courseContent: newSection._id
                 }
             },
-            { new: true }
+            { returnDocument: 'after' }
         ).populate({
             path: 'courseContent',
             populate: {
@@ -45,7 +51,6 @@ exports.createSection = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: "Unable to create section",
-            error: error.message
         });
     }
 }
@@ -63,9 +68,13 @@ exports.updateSection = async (req, res) => {
                 message: "Missing Properties"
             });
         }
+        if (!validIds(res, sectionId)) return;
+
+        // the section must belong to a course owned by this instructor
+        if (!(await findOwnedCourse({ courseContent: sectionId }, req.user.id, res))) return;
 
         // update section
-        const section = await Section.findByIdAndUpdate(sectionId, { sectionName }, { new: true });
+        const section = await Section.findByIdAndUpdate(sectionId, { sectionName }, { returnDocument: 'after' });
 
         // return response
         return res.status(200).json({
@@ -77,7 +86,6 @@ exports.updateSection = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: "Failed to update section",
-            error: error.message
         });
     }
 }
@@ -94,6 +102,11 @@ exports.deleteSection = async (req, res) => {
             });
         }
 
+        if (!validIds(res, sectionId)) return;
+
+        // the section must belong to a course owned by this instructor
+        if (!(await findOwnedCourse({ courseContent: sectionId }, req.user.id, res))) return;
+
         // Find the section first
         const section = await Section.findById(sectionId);
 
@@ -104,10 +117,12 @@ exports.deleteSection = async (req, res) => {
             });
         }
 
-        // Delete all subsections of this section
+        // Delete all subsections of this section (and their videos on Cloudinary)
+        const lessons = await SubSection.find({ _id: { $in: section.subSection } }).select("videoUrl");
         await SubSection.deleteMany({
             _id: { $in: section.subSection },
         });
+        await Promise.all(lessons.map(l => deleteFromCloudinary(l.videoUrl)));
 
         // Remove section reference from course
         await Course.findOneAndUpdate(
@@ -131,7 +146,6 @@ exports.deleteSection = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: "Failed to delete section",
-            error: error.message,
         });
     }
 };

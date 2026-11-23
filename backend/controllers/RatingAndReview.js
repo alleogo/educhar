@@ -12,9 +12,18 @@ exports.createRating = async (req, res) => {
         // fetch data from req.body
         const {rating, review, courseId} = req.body;
 
-        console.log("req.user = ", req.user);
-        console.log("userId = ", userId);
-        console.log(typeof userId);
+        // Validate input: an out-of-range rating used to be stored and then crashed the
+        // course page for every visitor ('☆'.repeat(negative) throws a RangeError)
+        const numericRating = Number(rating);
+        if (!Number.isInteger(numericRating) || numericRating < 1 || numericRating > 5) {
+            return res.status(400).json({ success: false, message: "Rating must be a whole number from 1 to 5." });
+        }
+        if (typeof review !== "string" || !review.trim() || review.length > 2000) {
+            return res.status(400).json({ success: false, message: "Please write a review (up to 2000 characters)." });
+        }
+        if (!mongoose.isValidObjectId(courseId)) {
+            return res.status(400).json({ success: false, message: "Invalid course id." });
+        }
 
         // check if user is enrolled or not
         const courseDetails = await Course.findOne( // {$elemMatch: {$eq: userId}}
@@ -40,7 +49,7 @@ exports.createRating = async (req, res) => {
         }
 
         // create rating and review  
-        const ratingReviewId = await RatingAndReview.create({rating, review,
+        const ratingReviewId = await RatingAndReview.create({rating: numericRating, review: review.trim(),
                                                           course: courseId,
                                                           user: userId});
 
@@ -51,8 +60,7 @@ exports.createRating = async (req, res) => {
                                             ratingAndReviews: ratingReviewId
                                         }
                                        },
-                                       {new: true} );
-        console.log(updatedCourseDetails); 
+                                       { returnDocument: 'after' } );
 
         // return response
         return res.status(200).json({
@@ -61,10 +69,10 @@ exports.createRating = async (req, res) => {
         });
     }
     catch(error){
-        console.log(error);
+        console.error("rating error:", error.message);
         return res.status(500).json({
             success: false,
-            message: error.message
+            message: "Something went wrong. Please try again."
         });
     }
 }
@@ -74,6 +82,10 @@ exports.getAverageRating = async (req, res) => {
     try{
         // get courseId 
         const courseId = req.body?.courseId || req.query?.courseId;
+
+        if (!mongoose.isValidObjectId(courseId)) {
+            return res.status(400).json({ success: false, message: "Invalid course id." });
+        }
 
         // calculate avg rating
         const result = await RatingAndReview.aggregate([
@@ -98,18 +110,18 @@ exports.getAverageRating = async (req, res) => {
             }); 
         }
 
-        // if no review/rating exists
+        // if no review/rating exists (not an error: the average is simply 0)
         return res.status(200).json({
-            success: false,
+            success: true,
             message: "Average rating is 0, no ratings given till now.",
             averageRating: 0
         }); 
     }
     catch(error){
-        console.log(error);
+        console.error("rating error:", error.message);
         return res.status(500).json({
             success: false,
-            message: error.message
+            message: "Something went wrong. Please try again."
         }); 
     }
 }
@@ -136,10 +148,10 @@ exports.getAllRatingAndReviews = async (req, res) => {
         });
     }
     catch(error){
-        console.log(error);
+        console.error("rating error:", error.message);
         return res.status(500).json({
             success: false,
-            message: error.message
+            message: "Something went wrong. Please try again."
         }); 
     }
 }
@@ -149,6 +161,9 @@ exports.deleteRating = async (req, res) => {
     try {
         const { reviewId } = req.params;
         const userId = req.user.id;
+        if (!mongoose.isValidObjectId(reviewId)) {
+            return res.status(400).json({ success: false, message: "Invalid review id." });
+        }
 
         // Find the review
         const review = await RatingAndReview.findById(reviewId);
@@ -180,10 +195,10 @@ exports.deleteRating = async (req, res) => {
             message: "Review deleted successfully."
         });
     } catch (error) {
-        console.log(error);
+        console.error("rating error:", error.message);
         return res.status(500).json({
             success: false,
-            message: error.message
+            message: "Something went wrong. Please try again."
         });
     }
 }

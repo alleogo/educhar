@@ -104,7 +104,7 @@ export default function Auth({ type }) {
     setLoading(true);
     try {
       await api.resetPasswordToken(formData.email);
-      toast.success("Reset link sent! Please check your email.");
+      toast.success("If that email is registered, a reset link has been sent.");
     } catch (error) {
       toast.error(error.message || "Failed to send reset link");
     } finally {

@@ -14,6 +14,9 @@ const userSchema = new mongoose.Schema({
     email:{
         type: String,
         required: true,
+        unique: true,      // DB-level guarantee against duplicate signups racing each other
+        lowercase: true,   // also applied when querying, so lookups are case-insensitive
+        trim: true
     },
     password:{
         type:String,

@@ -2,6 +2,8 @@ const Course = require("../models/Course");
 const Section = require("../models/Section");
 const SubSection = require("../models/SubSection");
 const uploadImageToCloudinary = require("../utils/cloudinaryUploader");
+const { validateFile, deleteFromCloudinary } = require("../utils/cloudinaryUploader");
+const { findOwnedCourse, validIds } = require("../utils/courseOwnership");
 require("dotenv").config();
 
 // createSubSection
@@ -13,29 +15,24 @@ exports.createSubsection = async (req, res) => {
         // extract file/video
         const video = req.files?.videoFile;
 
-        // Debug logging
-        console.log("Request body:", { sectionId, title, timeDuration, description });
-        console.log("Video file:", video?.name || "NOT FOUND");
-        console.log("All files received:", Object.keys(req.files || {}));
-        console.log("req.files content:", req.files);
-
         // validation
         if (!sectionId || !title || !timeDuration || !description || !video) {
             return res.status(400).json({
                 success: false,
-                message: "Missing properties.",
-                // debug: {
-                //     sectionId: !!sectionId,
-                //     title: !!title,
-                //     timeDuration: !!timeDuration,
-                //     description: !!description,
-                //     video: !!video
-                // }
+                message: "Missing properties."
             });
         }
 
+        if (!validIds(res, sectionId)) return;
+
+        // the section must belong to a course owned by this instructor (checked BEFORE uploading)
+        if (!(await findOwnedCourse({ courseContent: sectionId }, req.user.id, res))) return;
+
+        // reject non-video files before spending time on an upload
+        validateFile(video, "video");
+
         // upload file/video to cloudinary
-        const uploadDetails = await uploadImageToCloudinary(video, process.env.FOLDER_NAME);
+        const uploadDetails = await uploadImageToCloudinary(video, process.env.FOLDER_NAME, null, null, "video");
 
         // crate a sub-section
         const subSectionDetails = await SubSection.create({
@@ -52,7 +49,7 @@ exports.createSubsection = async (req, res) => {
                     subSection: subSectionDetails._id
                 }
             },
-            { new: true }
+            { returnDocument: 'after' }
         ).populate("subSection");
         // TODO: log updated section here, after adding populate query
 
@@ -64,11 +61,10 @@ exports.createSubsection = async (req, res) => {
         });
     }
     catch (error) {
-        console.error("SubSection creation error:", error);
-        return res.status(500).json({
+        console.error("SubSection creation error:", error.message);
+        return res.status(error.status === 400 ? 400 : 500).json({
             success: false,
-            message: "Internal server error: Failed to create sub-section.",
-            error: error?.message || error?.toString() || "Unknown error"
+            message: error.status === 400 ? error.message : "Failed to create sub-section."
         });
     }
 }
@@ -96,6 +92,18 @@ exports.updateSubSection = async (req, res) => {
             });
         }
 
+        if (!validIds(res, subSectionId)) return;
+
+        // subsection -> its section -> its course, which this instructor must own
+        const parentSection = await Section.findOne({ subSection: subSectionId }).select("_id");
+        if (!parentSection) {
+            return res.status(404).json({
+                success: false,
+                message: "SubSection not found."
+            });
+        }
+        if (!(await findOwnedCourse({ courseContent: parentSection._id }, req.user.id, res))) return;
+
         // get existing subsection
         const subSection =
             await SubSection.findById(subSectionId);
@@ -118,19 +126,19 @@ exports.updateSubSection = async (req, res) => {
             subSection.timeDuration = timeDuration;
 
         // upload new video if exists
+        let oldVideoUrl = null;
         if (video) {
-
-            const uploadDetails =
-                await uploadImageToCloudinary(
-                    video,
-                    process.env.FOLDER_NAME
-                );
-
-            subSection.videoUrl =
-                uploadDetails.secure_url;
+            const uploadDetails = await uploadImageToCloudinary(
+                video, process.env.FOLDER_NAME, null, null, "video"
+            );
+            oldVideoUrl = subSection.videoUrl;
+            subSection.videoUrl = uploadDetails.secure_url;
         }
 
         await subSection.save();
+
+        // remove the replaced video only after the new one is saved
+        if (oldVideoUrl) await deleteFromCloudinary(oldVideoUrl);
 
         return res.status(200).json({
             success: true,
@@ -141,10 +149,10 @@ exports.updateSubSection = async (req, res) => {
 
     }
     catch (error) {
-        console.log(error);
-        return res.status(500).json({
+        console.error("updateSubSection error:", error.message);
+        return res.status(error.status === 400 ? 400 : 500).json({
             success: false,
-            message: error.message
+            message: error.status === 400 ? error.message : "Failed to update sub-section."
         });
     }
 };
@@ -173,6 +181,18 @@ exports.deleteSubSection = async (req, res) => {
             });
         }
 
+        if (!validIds(res, sectionId, subSectionId)) return;
+
+        // the subsection must really be in this section, and the section in a course this instructor owns
+        const parentSection = await Section.findOne({ _id: sectionId, subSection: subSectionId }).select("_id");
+        if (!parentSection) {
+            return res.status(404).json({
+                success: false,
+                message: "SubSection not found in this section."
+            });
+        }
+        if (!(await findOwnedCourse({ courseContent: sectionId }, req.user.id, res))) return;
+
         // remove subsection id
         // from section
         await Section.findByIdAndUpdate(
@@ -183,7 +203,7 @@ exports.deleteSubSection = async (req, res) => {
                         subSectionId
                 }
             },
-            { new: true }
+            { returnDocument: 'after' }
         );
 
         // delete subsection
@@ -200,6 +220,8 @@ exports.deleteSubSection = async (req, res) => {
             });
         }
 
+        await deleteFromCloudinary(deletedSubSection.videoUrl);
+
         return res.status(200).json({
             success: true,
             message:
@@ -208,10 +230,10 @@ exports.deleteSubSection = async (req, res) => {
 
     }
     catch (error) {
-        console.log(error);
+        console.error("deleteSubSection error:", error.message);
         return res.status(500).json({
             success: false,
-            message: error.message
+            message: "Failed to delete sub-section."
         });
     }
 };

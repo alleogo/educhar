@@ -215,7 +215,7 @@ export default function InstructorDashboard() {
                 <div className="grid-2">
                   <div className="form-group">
                     <label>Price (INR)*</label>
-                    <input type="number" className="form-input" min="0" required value={formData.price} onChange={e => setFormData({ ...formData, price: e.target.value })} />
+                    <input type="number" className="form-input" min="1" required value={formData.price} onChange={e => setFormData({ ...formData, price: e.target.value })} />
                   </div>
                   <div className="form-group">
                     <label>Category*</label>
@@ -261,7 +261,7 @@ export default function InstructorDashboard() {
                 <div className="grid-2">
                   <div className="form-group">
                     <label>Price (INR)*</label>
-                    <input type="number" className="form-input" min="0" required value={editingCourse.price} onChange={e => setEditingCourse({ ...editingCourse, price: e.target.value })} />
+                    <input type="number" className="form-input" min="1" required value={editingCourse.price} onChange={e => setEditingCourse({ ...editingCourse, price: e.target.value })} />
                   </div>
                   <div className="form-group">
                     <label>Category*</label>

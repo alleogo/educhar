@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { api } from '../services/api';
 import toast from 'react-hot-toast';
 
 export default function CourseViewer() {
   const { id: courseId } = useParams();
+  const navigate = useNavigate();
   const { user } = useAppContext();
   const [course, setCourse] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -35,7 +36,7 @@ export default function CourseViewer() {
       const resp = await api.getCourseDetails(courseId);
       setCourse(resp.data);
 
-      if (user?.accountType === 'Student') {
+      if (user?.accountType === 'Student' && resp.data?.isEnrolled) {
         const progResp = await api.getCourseProgress(courseId);
         setCompletedVideos(progResp.data?.completedVideos || []);
       }
@@ -150,12 +151,28 @@ export default function CourseViewer() {
   if (loading) return <div className="view-loading"><div className="spinner"></div></div>;
   if (!course) return <div className="container mt-4 glass-panel text-center"><p className="text-danger">Course not found.</p></div>;
 
+  // Lesson videos are only served to the instructor and enrolled students
+  if (!course.canAccessContent) {
+    return (
+      <div className="container mt-4 glass-panel text-center" style={{ maxWidth: '520px', padding: '32px' }}>
+        <h3>This course is locked</h3>
+        <p style={{ color: 'var(--text-secondary)', margin: '12px 0 20px' }}>
+          {user ? 'Enroll in this course to watch its lessons.' : 'Log in and enroll to watch this course.'}
+        </p>
+        <button className="btn btn-primary" onClick={() => navigate(`/course-details/${courseId}`)}>View Course Details</button>
+      </div>
+    );
+  }
+
   let totalLessons = 0;
   (course.courseContent || []).forEach(sec => totalLessons += (sec.subSection || []).length);
-  const progressPercentage = totalLessons > 0 ? Math.round((completedVideos.length / totalLessons) * 100) : 0;
+  // Only count lessons that still exist (a deleted lesson may remain in completedVideos)
+  const lessonIds = new Set((course.courseContent || []).flatMap(sec => (sec.subSection || []).map(l => l._id)));
+  const completedCount = completedVideos.filter(id => lessonIds.has(id)).length;
+  const progressPercentage = totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0;
 
   return (
-    <div className="container mt-4" style={{ flex: 1, display: 'grid', gridTemplateColumns: '320px 1fr', gap: '24px', paddingBottom: '48px' }}>
+    <div className="container mt-4 viewer-layout">
       <aside className="glass-panel" style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '80vh', overflowY: 'auto' }}>
         <h3 style={{ paddingBottom: '8px', borderBottom: '1px solid var(--border-color)' }}>{course.courseName}</h3>
         {isInstructor && <button className="btn btn-primary btn-sm w-full" onClick={() => setShowSectionModal(true)}>+ Add Section</button>}
@@ -169,7 +186,7 @@ export default function CourseViewer() {
             <div style={{ width: '100%', height: '6px', background: 'var(--border-color)', borderRadius: '3px', overflow: 'hidden' }}>
               <div style={{ height: '100%', width: `${progressPercentage}%`, background: 'var(--color-success)', transition: 'width 0.3s ease' }}></div>
             </div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px', textAlign: 'right' }}>{completedVideos.length} / {totalLessons} completed</div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: '4px', textAlign: 'right' }}>{completedCount} / {totalLessons} completed</div>
           </div>
         )}
 
