@@ -3,6 +3,9 @@ const User = require("../models/User");
 const Category = require("../models/Category");
 const cloudinary = require("cloudinary").v2;
 const uploadImageToCloudinary = require("../utils/cloudinaryUploader");
+const { validateFile, deleteFromCloudinary } = require("../utils/cloudinaryUploader");
+const mongoose = require("mongoose");
+const { removeCourseCompletely } = require("../utils/courseCleanup");
 const Section = require("../models/Section");
 const SubSection = require("../models/SubSection");
 const CourseProgress = require("../models/CourseProgress");
@@ -12,6 +15,12 @@ require('dotenv').config();
 
 // Fields of an instructor that are safe to expose on public endpoints
 const PUBLIC_USER_FIELDS = "firstName lastName image accountType";
+
+// Razorpay's minimum order is ₹1 (100 paise), so a course must cost at least ₹1 to be purchasable
+function parsePrice(price) {
+    const value = Number(price);
+    return Number.isFinite(value) && value >= 1 ? value : null;
+}
 
 // Optional authentication for public routes: identifies the caller if they sent a valid
 // token, but never rejects the request. Header first, then cookie (same order of trust
@@ -44,6 +53,16 @@ exports.createCourse = async (req, res) => {
             });
         }
 
+        const numericPrice = parsePrice(price);
+        if (numericPrice === null) {
+            return res.status(400).json({ success: false, message: "Price must be at least ₹1." });
+        }
+        if (!mongoose.isValidObjectId(category)) {
+            return res.status(400).json({ success: false, message: "Invalid category." });
+        }
+        // reject non-image thumbnails before doing any work
+        validateFile(thumbnail, "image");
+
         // check for instructor
         const userId = req.user.id;
         const instructorDetails = await User.findById(userId);
@@ -68,7 +87,8 @@ exports.createCourse = async (req, res) => {
         // upload image to cloudinary
         const thumbnailImage = await uploadImageToCloudinary(
             thumbnail,
-            process.env.FOLDER_NAME
+            process.env.FOLDER_NAME,
+            null, null, "image"
         );
 
 
@@ -78,7 +98,7 @@ exports.createCourse = async (req, res) => {
             courseName, courseDescription,
             instructor: instructorDetails._id,
             whatYouWillLearn: whatYouWillLearn,  // or simply whatYouWillLearn, 
-            price,
+            price: numericPrice,
             category: categoryDetails._id,                 //category: category
             thumbnail: thumbnailImage.secure_url,
         });
@@ -105,11 +125,10 @@ exports.createCourse = async (req, res) => {
         });
     }
     catch (error) {
-        console.log(error);
-        return res.status(500).json({
+        console.error("createCourse error:", error.message);
+        return res.status(error.status === 400 ? 400 : 500).json({
             success: false,
-            message: "Failed to create course",
-            error: error.message
+            message: error.status === 400 ? error.message : "Failed to create course"
         });
     }
 }
@@ -143,11 +162,10 @@ exports.showAllCourses = async (req, res) => {
         });
     }
     catch (error) {
-        console.log(error);
+        console.error("showAllCourses error:", error.message);
         return res.status(500).json({
             success: false,
-            message: "Failed to fetch course data.",
-            error: error.message
+            message: "Failed to fetch course data."
         });
     }
 }
@@ -157,6 +175,9 @@ exports.getCourseDetails = async (req, res) => {
     try {
         // get id
         const courseId = req.body?.courseId || req.query?.courseId;
+        if (!mongoose.isValidObjectId(courseId)) {
+            return res.status(400).json({ success: false, message: "Invalid course id." });
+        }
 
         // find course details
         const courseDetails = await Course.findById(courseId)
@@ -188,7 +209,7 @@ exports.getCourseDetails = async (req, res) => {
         if (!courseDetails) {
             return res.status(404).json({
                 success: false,
-                message: `Could not find a course with course id: ${courseId}`
+                message: "Course not found."
             });
         }
 
@@ -231,10 +252,10 @@ exports.getCourseDetails = async (req, res) => {
         });
     }
     catch (error) {
-        console.log(error);
+        console.error("getCourseDetails error:", error.message);
         return res.status(500).json({
             success: false,
-            message: error.message
+            message: "Could not load course details."
         });
     }
 }
@@ -243,8 +264,11 @@ exports.getCourseDetails = async (req, res) => {
 exports.updateCourse = async (req, res) => {
     try {
         const { courseId } = req.params;
-        const { courseName, courseDescription, whatYouWillLearn, price, category, instructions } = req.body;
+        const { courseName, courseDescription, whatYouWillLearn, price, category } = req.body;
 
+        if (!mongoose.isValidObjectId(courseId)) {
+            return res.status(400).json({ success: false, message: "Invalid course id." });
+        }
         const course = await Course.findById(courseId);
         if (!course) {
             return res.status(404).json({ success: false, message: "Course not found" });
@@ -260,27 +284,42 @@ exports.updateCourse = async (req, res) => {
         if (courseName !== undefined) course.courseName = courseName;
         if (courseDescription !== undefined) course.courseDescription = courseDescription;
         if (whatYouWillLearn !== undefined) course.whatYouWillLearn = whatYouWillLearn;
-        if (price !== undefined) course.price = price;
+        if (price !== undefined) {
+            const numericPrice = parsePrice(price);
+            if (numericPrice === null) {
+                return res.status(400).json({ success: false, message: "Price must be at least ₹1." });
+            }
+            course.price = numericPrice;
+        }
 
-        // Update Category if changed
-        if (category !== undefined && category !== course.category.toString()) {
+        // Update Category if changed (and only to a category that exists)
+        if (category !== undefined && category !== String(course.category)) {
+            if (!mongoose.isValidObjectId(category) || !(await Category.exists({ _id: category }))) {
+                return res.status(400).json({ success: false, message: "Invalid category." });
+            }
             // Remove from old category
             await Category.findByIdAndUpdate(course.category, { $pull: { course: courseId } });
             course.category = category;
             // Add to new category
-            await Category.findByIdAndUpdate(category, { $push: { course: courseId } });
+            await Category.findByIdAndUpdate(category, { $addToSet: { course: courseId } });
         }
 
         // Upload new thumbnail if provided
+        let oldThumbnail = null;
         if (req.files?.thumbnail) {
             const thumbnailImage = await uploadImageToCloudinary(
                 req.files.thumbnail,
-                process.env.FOLDER_NAME
+                process.env.FOLDER_NAME,
+                null, null, "image"
             );
+            oldThumbnail = course.thumbnail;
             course.thumbnail = thumbnailImage.secure_url;
         }
 
         await course.save();
+
+        // remove the replaced thumbnail only after the new one is saved
+        if (oldThumbnail) await deleteFromCloudinary(oldThumbnail);
 
         return res.status(200).json({
             success: true,
@@ -288,11 +327,10 @@ exports.updateCourse = async (req, res) => {
             data: course
         });
     } catch (error) {
-        console.log(error);
-        return res.status(500).json({
+        console.error("updateCourse error:", error.message);
+        return res.status(error.status === 400 ? 400 : 500).json({
             success: false,
-            message: "Failed to update course",
-            error: error.message
+            message: error.status === 400 ? error.message : "Failed to update course"
         });
     }
 }
@@ -301,6 +339,9 @@ exports.updateCourse = async (req, res) => {
 exports.deleteCourse = async (req, res) => {
     try {
         const { courseId } = req.params;
+        if (!mongoose.isValidObjectId(courseId)) {
+            return res.status(400).json({ success: false, message: "Invalid course id." });
+        }
 
         // Find the course
         const course = await Course.findById(courseId);
@@ -320,57 +361,18 @@ exports.deleteCourse = async (req, res) => {
             });
         }
 
-        // Unenroll all enrolled students
-        const enrolledStudents = course.enrolledStudents || [];
-        for (const studentId of enrolledStudents) {
-            await User.findByIdAndUpdate(studentId, {
-                $pull: { courses: courseId }
-            });
-        }
-
-        // Delete all subsections and sections belonging to this course
-        const sections = course.courseContent || [];
-        for (const sectionId of sections) {
-            const section = await Section.findById(sectionId);
-            if (section) {
-                // Delete all subsections in this section
-                if (section.subSection && section.subSection.length > 0) {
-                    await SubSection.deleteMany({ _id: { $in: section.subSection } });
-                }
-                await Section.findByIdAndDelete(sectionId);
-            }
-        }
-
-        // Delete CourseProgress associated with this course
-        await CourseProgress.deleteMany({ courseID: courseId });
-
-        // Delete RatingAndReview associated with this course
-        await RatingAndReview.deleteMany({ course: courseId });
-
-        // Remove course from its category
-        if (course.category) {
-            await Category.findByIdAndUpdate(course.category, {
-                $pull: { course: courseId }
-            });
-        }
-
-        // Remove course from instructor's courses list
-        await User.findByIdAndUpdate(course.instructor, {
-            $pull: { courses: courseId }
-        });
-
-        // Finally, delete the course itself
-        await Course.findByIdAndDelete(courseId);
+        // Remove the course and all dependent data + media (shared with account deletion)
+        await removeCourseCompletely(course);
 
         return res.status(200).json({
             success: true,
             message: "Course deleted successfully"
         });
     } catch (error) {
-        console.log(error);
+        console.error("deleteCourse error:", error.message);
         return res.status(500).json({
             success: false,
-            message: error.message
+            message: "Failed to delete course."
         });
     }
 }

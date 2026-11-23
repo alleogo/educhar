@@ -4,6 +4,9 @@ const Course = require("../models/Course");
 const CourseProgress = require("../models/CourseProgress");
 const RatingAndReview = require("../models/RatingAndReview");
 const uploadImageToCloudinary = require("../utils/cloudinaryUploader");
+const { deleteFromCloudinary } = require("../utils/cloudinaryUploader");
+const { removeCourseCompletely } = require("../utils/courseCleanup");
+const { authCookieOptions } = require("../middlewares/auth");
 
 exports.updateDisplayPicture = async (req, res) => {
     try {
@@ -11,33 +14,36 @@ exports.updateDisplayPicture = async (req, res) => {
         const userId = req.user.id;
         
         if (!displayPicture) {
-            return res.status(404).json({
+            return res.status(400).json({
                 success: false,
                 message: "No image file provided."
             });
         }
         
+        // validates type (jpeg/png/gif/webp) and size (5 MB) before uploading
         const image = await uploadImageToCloudinary(
             displayPicture,
-            process.env.FOLDER_NAME || "educhar"
+            process.env.FOLDER_NAME || "educhar",
+            null, null, "image"
         );
         
-        const updatedProfile = await User.findByIdAndUpdate(
+        // {new: false} returns the previous document, so the old picture can be cleaned up
+        const previous = await User.findByIdAndUpdate(
             { _id: userId },
-            { image: image.secure_url },
-            { new: true }
+            { image: image.secure_url }
         );
+        if (previous?.image) await deleteFromCloudinary(previous.image);   // no-op for dicebear avatars
         
-        res.send({
+        return res.status(200).json({
             success: true,
             message: "Image updated successfully.",
-            data: updatedProfile,
+            data: { image: image.secure_url },
         });
     } catch (error) {
-        return res.status(500).json({
+        console.error("updateDisplayPicture error:", error.message);
+        return res.status(error.status === 400 ? 400 : 500).json({
             success: false,
-            message: "Failed to update profile picture.",
-            error: error.message,
+            message: error.status === 400 ? error.message : "Failed to update profile picture."
         });
     }
 };
@@ -70,12 +76,17 @@ exports.updateProfile = async (req,res) => {
         
         // update User specific fields
         let userUpdated = false;
-        if (email && email !== userDetails.email) {
-            const existingUser = await User.findOne({ email });
+        // Stored lowercase (like signup), otherwise login by email would stop matching
+        const newEmail = typeof email === "string" ? email.trim().toLowerCase() : "";
+        if (newEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+            return res.status(400).json({ success: false, message: "Please enter a valid email address." });
+        }
+        if (newEmail && newEmail !== userDetails.email) {
+            const existingUser = await User.findOne({ email: newEmail });
             if (existingUser) {
                 return res.status(400).json({ success: false, message: "Email is already in use." });
             }
-            userDetails.email = email;
+            userDetails.email = newEmail;
             userUpdated = true;
         }
         if (firstName !== undefined && firstName.trim() !== "") {
@@ -95,7 +106,13 @@ exports.updateProfile = async (req,res) => {
 
         // update only provided fields
         if(dateOfBirth !== undefined) profileDetails.dateOfBirth = dateOfBirth;
-        if(contactNumber !== undefined) profileDetails.contactNumber = contactNumber;
+        if(contactNumber !== undefined){
+            // Schema stores a Number: accept "+91 98765-43210" style input, reject anything else
+            const digits = String(contactNumber).replace(/[\s()+-]/g, "");
+            if(digits === "") profileDetails.contactNumber = null;
+            else if(/^\d{7,15}$/.test(digits)) profileDetails.contactNumber = Number(digits);
+            else return res.status(400).json({ success: false, message: "Please enter a valid contact number." });
+        }
         if(about !== undefined) profileDetails.about = about;
         if(gender !== undefined) profileDetails.gender = gender;
         await profileDetails.save();
@@ -115,101 +132,71 @@ exports.updateProfile = async (req,res) => {
     catch(error){
         return res.status(500).json({
             success: false,
-            message: "Failed to update profile.",
-            error: error.message
+            message: error.code === 11000 ? "Email is already in use." : "Failed to update profile."
         });
     }
 }
 
-// Explore -> how can we schedule this deletion operation, cronjob 
 // deleteAccount
 exports.deleteAccount = async (req,res) => {
     try{
-        // get ID
         const id = req.user.id;
 
-        // validation
         const userDetails = await User.findById(id);
         if(!userDetails){
-            return res.status(400).json({
+            return res.status(404).json({
                 success: false,
                 message: "User Not Found."
             });
         }
 
-        // delete profile
-        await Profile.findByIdAndDelete({_id: userDetails.additionalDetails}); 
-        
-        // TODO(HW): unenroll user from all enrolled courses  
-        // for(const courseId of userDetails.courses){
-        //     await Course.findOneAndUpdate(
-        //         {_id: courseId}, 
-        //         {
-        //             $pull: {
-        //                 enrolledStudents: _id
-        //             }
-        //         }
-        //     );
-        // }
-
-        // unenroll user from all enrolled courses 
-        if (userDetails.courses && userDetails.courses.length > 0) {
-            await Course.updateMany(
-                { _id: { $in: userDetails.courses } },
-                { $pull: { enrolledStudents: id } }
-            );
-        }
-
-        // delete all CourseProgress associated with user
-        if (userDetails.courseProgress && userDetails.courseProgress.length > 0) {
-            await CourseProgress.deleteMany({ _id: { $in: userDetails.courseProgress } });
-        }
-
-        // delete all Ratings and Reviews authored by the user
-        await RatingAndReview.deleteMany({ user: id });
-
-        // if user is an Instructor, their created courses should ideally be deleted as well
-        // (alternatively, they could be reassigned, but for now we delete them to avoid orphaned courses)
+        // Instructors: delete their courses and everything attached (incl. Cloudinary media)
         if (userDetails.accountType === "Instructor") {
             const instructorCourses = await Course.find({ instructor: id });
             for (const course of instructorCourses) {
-                // Remove course from category
-                await require("../models/Category").findByIdAndUpdate(course.category, {
-                    $pull: { course: course._id }
-                });
-                // Delete all sections and subsections
-                const sections = course.courseContent || [];
-                for (const sectionId of sections) {
-                    const section = await require("../models/Section").findById(sectionId);
-                    if (section) {
-                        if (section.subSection && section.subSection.length > 0) {
-                            await require("../models/SubSection").deleteMany({ _id: { $in: section.subSection } });
-                        }
-                        await require("../models/Section").findByIdAndDelete(sectionId);
-                    }
-                }
-                // Delete course progress and ratings for this course
-                await CourseProgress.deleteMany({ courseID: course._id });
-                await RatingAndReview.deleteMany({ course: course._id });
-                // Delete the course
-                await Course.findByIdAndDelete(course._id);
+                await removeCourseCompletely(course);
             }
         }
 
-        // delete user
+        // Unenroll from every course (covers students and stale references)
+        await Course.updateMany(
+            { enrolledStudents: id },
+            { $pull: { enrolledStudents: id } }
+        );
+
+        // Remove this user's reviews from the courses that reference them, then delete them
+        const reviews = await RatingAndReview.find({ user: id }).select("_id");
+        if (reviews.length > 0) {
+            const reviewIds = reviews.map(r => r._id);
+            await Course.updateMany(
+                { ratingAndReviews: { $in: reviewIds } },
+                { $pull: { ratingAndReviews: { $in: reviewIds } } }
+            );
+            await RatingAndReview.deleteMany({ _id: { $in: reviewIds } });
+        }
+
+        // Progress, profile, then the user
+        if (userDetails.courseProgress?.length > 0) {
+            await CourseProgress.deleteMany({ _id: { $in: userDetails.courseProgress } });
+        }
+        await Profile.findByIdAndDelete(userDetails.additionalDetails);
         await User.findByIdAndDelete(id);
 
-        // return response
+        // Uploaded profile picture (no-op for generated avatars)
+        await deleteFromCloudinary(userDetails.image);
+
+        // Log the session out server-side too
+        res.clearCookie("token", authCookieOptions());
         return res.status(200).json({
             success: true,
             message: "User deleted successfully."
         })
     }
     catch(error){
+        console.error("deleteAccount error:", error.message);
         return res.status(500).json({
             success: false,
-            message: "Failed to delete profile.",
-            error: error.message
+            message: "Failed to delete account."
         });
     }
 }
@@ -228,8 +215,7 @@ exports.getUserDetails = async (req, res) => {
     catch(error){
         return res.status(500).json({
             success: false,
-            message: "Error while fetching user details.",
-            error: error.message
+            message: "Error while fetching user details."
         });
     }
 }
@@ -272,10 +258,10 @@ exports.getEnrolledCourses = async (req, res) => {
         });
     }
     catch (error) {
-        console.error(error);
+        console.error("getEnrolledCourses error:", error.message);
         return res.status(500).json({
             success: false,
-            message: error.message
+            message: "Could not load enrolled courses."
         });
     }
 }

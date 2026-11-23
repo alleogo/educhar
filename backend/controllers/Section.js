@@ -2,6 +2,7 @@ const Section = require("../models/Section");
 const Course = require("../models/Course");
 const SubSection = require("../models/SubSection");
 const { findOwnedCourse, validIds } = require("../utils/courseOwnership");
+const { deleteFromCloudinary } = require("../utils/cloudinaryUploader");
 
 // createSection handler
 exports.createSection = async (req, res) => {
@@ -50,7 +51,6 @@ exports.createSection = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: "Unable to create section",
-            error: error.message
         });
     }
 }
@@ -86,7 +86,6 @@ exports.updateSection = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: "Failed to update section",
-            error: error.message
         });
     }
 }
@@ -118,10 +117,12 @@ exports.deleteSection = async (req, res) => {
             });
         }
 
-        // Delete all subsections of this section
+        // Delete all subsections of this section (and their videos on Cloudinary)
+        const lessons = await SubSection.find({ _id: { $in: section.subSection } }).select("videoUrl");
         await SubSection.deleteMany({
             _id: { $in: section.subSection },
         });
+        await Promise.all(lessons.map(l => deleteFromCloudinary(l.videoUrl)));
 
         // Remove section reference from course
         await Course.findOneAndUpdate(
@@ -145,7 +146,6 @@ exports.deleteSection = async (req, res) => {
         return res.status(500).json({
             success: false,
             message: "Failed to delete section",
-            error: error.message,
         });
     }
 };
