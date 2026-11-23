@@ -1,6 +1,9 @@
 const Category = require("../models/Category");
 const Course = require("../models/Course");
 
+// Fields of an instructor that are safe to expose on public endpoints
+const PUBLIC_USER_FIELDS = "firstName lastName image accountType";
+
 // createCategory handler
 exports.createCategory = async (req, res) => {
     try {
@@ -66,7 +69,8 @@ exports.categoryPageDetails = async (req, res) => {
             .populate({
                 path: "course",
                 populate: {
-                    path: "instructor"
+                    path: "instructor",
+                    select: PUBLIC_USER_FIELDS
                 }
             }).exec();
 
@@ -83,7 +87,8 @@ exports.categoryPageDetails = async (req, res) => {
             .populate({
                 path: "course",
                 populate: {
-                    path: "instructor"
+                    path: "instructor",
+                    select: PUBLIC_USER_FIELDS
                 }
             }).exec();
 
@@ -91,7 +96,7 @@ exports.categoryPageDetails = async (req, res) => {
         const topSellingCourses = await Course.find({})
             .sort({ enrolledStudents: -1 })
             .limit(10)
-            .populate("instructor")
+            .populate("instructor", PUBLIC_USER_FIELDS)
             .exec();
 
         // return response

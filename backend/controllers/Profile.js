@@ -219,7 +219,6 @@ exports.getUserDetails = async (req, res) => {
     try{
         const id = req.user.id;
         const userDetails = await User.findById(id).populate("additionalDetails").exec(); 
-        console.log(userDetails);
         return res.status(200).json({
             success: true,
             message: "User data fetched successfully.",
@@ -253,7 +252,8 @@ exports.getEnrolledCourses = async (req, res) => {
                         }
                     },
                     {
-                        path: "instructor"
+                        path: "instructor",
+                        select: "firstName lastName image"
                     }
                 ]
             });
